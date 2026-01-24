@@ -15,11 +15,13 @@ cd WatchDen
 ```
 
 ### Create and Switch to a New Feature Branch
-
 Replace feature-name with what you’re working on, like feature/login.
-
 ```bash
 git checkout -b feature/< feature-name >
+```
+If existing branch then
+```bash
+git checkout feature/< feature-name >
 ```
 
 ### Make Code Changes
@@ -36,7 +38,7 @@ git commit -m "feat: < add login page layout >"
 ### Pull Latest Dev Before Push (to avoid conflict)
 
 ```bash
-git pull origin dev --rebase
+git pull origin dev
 ```
 
 ### Push to Remote
