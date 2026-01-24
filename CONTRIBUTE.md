@@ -1,4 +1,5 @@
 # 🧩 Contributing to WatchDen
+First fork the repository from the invitation page
 
 ## 📌 Project Workflow
 
@@ -9,7 +10,7 @@
 ### Clone the Repo (first time only)
 
 ```bash
-git clone https://github.com/SarkarSubhajit/WatchDen.git
+git clone https://github.com/< username >/WatchDen.git
 cd WatchDen
 ```
 
