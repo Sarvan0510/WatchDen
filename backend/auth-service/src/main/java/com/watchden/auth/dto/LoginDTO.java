@@ -1,16 +1,24 @@
 package com.watchden.auth.dto;
 
+import jakarta.validation.constraints.NotBlank;
 
 public class LoginDTO {
 	
-	String username;
+	@NotBlank(message = "Username cannot be blank")
+	private String username;
 
-	String Password;
+
+	@NotBlank(message = "Password cannot be blank")
+	private String password;
+
+	public LoginDTO() {
+		
+	}
 	
 	public LoginDTO(String username, String password) {
 
 		this.username = username;
-		this.Password = password;
+		this.password = password;
 	}
 	
 	public String getUsername() {
@@ -20,9 +28,9 @@ public class LoginDTO {
 		this.username = username;
 	}
 	public String getPassword() {
-		return Password;
+		return password;
 	}
 	public void setPassword(String password) {
-		Password = password;
+		this.password = password;
 	}
 }

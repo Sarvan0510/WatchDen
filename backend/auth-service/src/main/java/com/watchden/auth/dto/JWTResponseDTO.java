@@ -4,17 +4,18 @@ public class JWTResponseDTO {
 	
 	private String token;
 	private String type = "Bearer";
-	private String id;
+	private Long id;
 	private String username;
 	private String email;
 	
-	public JWTResponseDTO(String token, String id, String username, String email) {
+	public JWTResponseDTO(String token, Long id, String username, String email) {
 
 		this.token = token;
 		this.id = id;
 		this.username = username;
 		this.email = email;
 	}
+	
 	public String getToken() {
 		return token;
 	}
@@ -27,10 +28,10 @@ public class JWTResponseDTO {
 	public void setType(String type) {
 		this.type = type;
 	}
-	public String getId() {
+	public Long getId() {
 		return id;
 	}
-	public void setId(String id) {
+	public void setId(Long id) {
 		this.id = id;
 	}
 	public String getUsername() {
