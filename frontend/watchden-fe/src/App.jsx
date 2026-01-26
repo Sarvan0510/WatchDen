@@ -1,14 +1,27 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import viteLogo from "/vite.svg";
-import "./App.css";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-function App() {
+import Landing from "./pages/Landing";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import RoomList from "./pages/RoomList";
+import RoomJoinCreate from "./pages/RoomJoinCreate";
+import RoomView from "./pages/RoomView";
+
+export default function App() {
   return (
-    <>
-      <h1 className="text-4xl font-bold text-blue-500">Tailwind Works 🚀</h1>
-    </>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* 👇 THESE TWO ARE CRITICAL */}
+        <Route path="/rooms" element={<RoomList />} />
+        <Route path="/rooms/join" element={<RoomJoinCreate />} />
+
+        {/* 👇 Dynamic room */}
+        <Route path="/rooms/:roomId" element={<RoomView />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
-
-export default App;
