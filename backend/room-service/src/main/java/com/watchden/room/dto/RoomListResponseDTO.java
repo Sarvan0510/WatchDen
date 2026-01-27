@@ -3,14 +3,16 @@ package com.watchden.room.dto;
 public class RoomListResponseDTO {
 	
 	private Long roomId;
+	private String roomCode;
 	private String roomName;
 	private int participantCount;
 	private boolean isPublic;
 	private Integer maxUsers;
 	
-	public RoomListResponseDTO(Long roomId, String roomName, int participantCount, boolean isPublic, Integer maxUsers) {
+	public RoomListResponseDTO(Long roomId, String roomCode, String roomName, int participantCount, boolean isPublic, Integer maxUsers) {
 		
 		this.roomId = roomId;
+		this.roomCode = roomCode;
 		this.roomName = roomName;
 		this.participantCount = participantCount;
 		this.isPublic = isPublic;
@@ -19,6 +21,10 @@ public class RoomListResponseDTO {
 
 	public Long getRoomId() {
 		return roomId;
+	}
+
+	public String getRoomCode() {
+		return roomCode;
 	}
 
 	public String getRoomName() {
