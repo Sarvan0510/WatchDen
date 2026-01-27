@@ -1,7 +1,6 @@
 package com.watchden.room.service;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -26,43 +25,42 @@ public class RoomServiceImplementation implements RoomService {
 
 	private final RoomRepository roomRepository;
 	private final RoomParticipantRepository roomParticipantRepository;
-	
-	//Constructor injection
-	public RoomServiceImplementation(RoomRepository roomRepository, RoomParticipantRepository roomParticipantRepository) {
-		
+
+	// Constructor injection
+	public RoomServiceImplementation(RoomRepository roomRepository,
+			RoomParticipantRepository roomParticipantRepository) {
+
 		this.roomRepository = roomRepository;
 		this.roomParticipantRepository = roomParticipantRepository;
 	}
-	
-	
+
 	// ---------------Create Room-------------------
 	@Override
 	@Transactional
 	public CreateRoomResponseDTO createRoom(CreateRoomRequestDTO request, Long hostUserId) {
 		// TODO Auto-generated method stub
-		
-		//Generate unique room-code
+
+		// Generate unique room-code
 		String roomCode = generateRoomCode();
-		
-		//Create the Room
+
+		// Create the Room
 		Room room = new Room(roomCode, hostUserId, request.getRoomName(), request.getIsPublic(), request.getMaxUsers());
-		
-		//Save the room
+
+		// Save the room
 		Room savedRoom = roomRepository.save(room);
-		
-		//Auto-join Participant
+
+		// Auto-join Participant
 		RoomParticipant hostParticipant = new RoomParticipant(savedRoom.getId(), hostUserId);
-		
+
 		roomParticipantRepository.save(hostParticipant);
-		
+
 		return new CreateRoomResponseDTO(
-				savedRoom.getId(), 
-				savedRoom.getRoomCode(), 
+				savedRoom.getId(),
+				savedRoom.getRoomCode(),
 				savedRoom.getRoomName(),
 				savedRoom.isPublic(),
 				true,
-				savedRoom.getMaxUsers()
-		);
+				savedRoom.getMaxUsers());
 	}
 
 	// ---------------Join Room-------------------
@@ -70,91 +68,85 @@ public class RoomServiceImplementation implements RoomService {
 	@Transactional
 	public void joinRoom(String roomCode, Long userId) {
 		// TODO Auto-generated method stub
-		
-		if(roomCode == null || roomCode.isBlank()) {
-			
+
+		if (roomCode == null || roomCode.isBlank()) {
+
 			throw new InvalidRoomCodeException("Room code cannot be empty");
 		}
-		
-		//Find room
+
+		// Find room
 		Room room = roomRepository.findByRoomCodeWithLock(roomCode)
-									.orElseThrow(() -> new RoomNotFoundException("Room not found with code: " + roomCode));
-		
+				.orElseThrow(() -> new RoomNotFoundException("Room not found with code: " + roomCode));
+
 		// Check Room Capacity
 		long currentParticipants = roomParticipantRepository.countByRoomId(room.getId());
-		
+
 		if (room.getMaxUsers() != null && currentParticipants >= room.getMaxUsers()) {
-			
+
 			throw new RoomFullException("Room is full. Max users: " + room.getMaxUsers());
 		}
-		
-		//Prevent duplicate join
-		if(roomParticipantRepository.existsByRoomIdAndUserId(room.getId(), userId)) {
-			
+
+		// Prevent duplicate join
+		if (roomParticipantRepository.existsByRoomIdAndUserId(room.getId(), userId)) {
+
 			throw new AlreadyJoinedException("User already joined this room");
 		}
-		
-		//Create participant 
+
+		// Create participant
 		RoomParticipant participant = new RoomParticipant(room.getId(), userId);
-		
-		//save participant
+
+		// save participant
 		roomParticipantRepository.save(participant);
 	}
 
-	
-	
 	// ---------------Leave Room-------------------
 	@Override
 	@Transactional
 	public void leaveRoom(Long roomId, Long userId) {
 		// TODO Auto-generated method stub
-		
+
 		Room room = roomRepository.findById(roomId)
 				.orElseThrow(() -> new RoomNotFoundException("Room not found with id: " + roomId));
-		
-		//Check first if user is participant
+
+		// Check first if user is participant
 		if (!roomParticipantRepository.existsByRoomIdAndUserId(roomId, userId)) {
-		    throw new IllegalStateException("User is not a participant of this room");
+			throw new IllegalStateException("User is not a participant of this room");
 		}
-				
-		
-		//If host leaves -> close room immediately
-		if(room.getHostUserId().equals(userId)) {
-			
+
+		// If host leaves -> close room immediately
+		if (room.getHostUserId().equals(userId)) {
+
 			roomRepository.deleteById(roomId);
 			return;
 		}
-		
-		
-		//Normal Participant Leave
+
+		// Normal Participant Leave
 		roomParticipantRepository.deleteByRoomIdAndUserId(roomId, userId);
-		
-		//If no participant left (Delete room)
+
+		// If no participant left (Delete room)
 		long remaining = roomParticipantRepository.countByRoomId(roomId);
-		
-		if(remaining == 0) {
-			
+
+		if (remaining == 0) {
+
 			roomRepository.deleteById(roomId);
 		}
 	}
-	
-	
-	
 
 	// ---------------List All Public Rooms-------------------
 	@Override
 	@Transactional
 	public List<RoomListResponseDTO> getPublicRooms() {
 		// TODO Auto-generated method stub
-		
+
 		return roomRepository.findPublicRooms()
 				.stream()
 				.map(room -> {
-					
+
 					long count = roomParticipantRepository.countByRoomId(room.getId());
-					
+
 					return new RoomListResponseDTO(
 							room.getId(),
+							room.getRoomCode(),
 							room.getRoomName(),
 							(int) count,
 							room.isPublic(),
@@ -162,18 +154,17 @@ public class RoomServiceImplementation implements RoomService {
 				})
 				.collect(Collectors.toList());
 	}
-	
-	
-	//Utility Function
+
+	// Utility Function
 	private String generateRoomCode() {
-		
+
 		String code;
 		do {
 			code = UUID.randomUUID()
-			.toString()
-			.replace("-", "")
-			.substring(0, 8)
-			.toUpperCase();
+					.toString()
+					.replace("-", "")
+					.substring(0, 8)
+					.toUpperCase();
 		} while (roomRepository.findByRoomCode(code).isPresent());
 
 		return code;
