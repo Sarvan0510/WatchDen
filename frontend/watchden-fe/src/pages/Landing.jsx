@@ -1,28 +1,41 @@
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
-export default function Landing() {
+const Landing = () => {
+  const navigate = useNavigate();
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="w-80 bg-white p-6 rounded shadow">
-        <h1 className="text-2xl font-semibold text-center mb-2">Watch Party</h1>
-
-        <p className="text-sm text-gray-600 text-center mb-6">
-          Watch videos together in real time
-        </p>
-
-        <div className="flex flex-col gap-3">
-          <Link
-            to="/login"
-            className="text-center bg-black text-white py-2 rounded"
-          >
-            Login
-          </Link>
-
-          <Link to="/register" className="text-center border py-2 rounded">
-            Sign Up
-          </Link>
-        </div>
+    <div style={styles.container}>
+      <h1>Welcome to WatchDen</h1>
+      <p>Watch videos together with friends in real-time.</p>
+      <div style={styles.actions}>
+        <button onClick={() => navigate("/login")} style={styles.button}>
+          Start Watching
+        </button>
       </div>
     </div>
   );
-}
+};
+
+const styles = {
+  container: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100vh",
+    background: "#121212",
+    color: "white",
+  },
+  actions: { marginTop: "20px" },
+  button: {
+    padding: "10px 20px",
+    fontSize: "1.2rem",
+    cursor: "pointer",
+    background: "#007bff",
+    color: "white",
+    border: "none",
+    borderRadius: "5px",
+  },
+};
+
+export default Landing;

@@ -1,60 +1,66 @@
 import { useState } from "react";
-import api from "../api/api";
-import { useNavigate, Link } from "react-router-dom";
+import { login } from "../api/auth.api";
 
-export default function Login() {
+const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
-  const login = async () => {
+  const handleLogin = async () => {
+    if (!username || !password) {
+      alert("Username and password required");
+      return;
+    }
+
     try {
-      const res = await api.post("/api/auth/signin", {
+      setLoading(true);
+
+      const res = await login({
         username,
         password,
       });
 
-      localStorage.setItem("token", res.data.token);
-      navigate("/rooms");
-    } catch {
+      const token = res.data.token;
+
+      if (!token) {
+        alert("Login failed: no token received");
+        return;
+      }
+
+      localStorage.setItem("token", token);
+
+      // Redirect to a test room
+      window.location.href = "/rooms/room123";
+    } catch (err) {
+      console.error(err);
       alert("Invalid username or password");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="w-80 bg-white p-6 rounded shadow">
-        <h2 className="text-xl font-semibold text-center mb-4">Login</h2>
+    <div>
+      <h2>Login</h2>
 
-        <input
-          className="w-full border p-2 mb-3 rounded"
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
+      <input
+        placeholder="Username"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+      />
 
-        <input
-          type="password"
-          className="w-full border p-2 mb-4 rounded"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+      <input
+        type="password"
+        placeholder="Password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
 
-        <button
-          onClick={login}
-          className="w-full bg-black text-white py-2 rounded"
-        >
-          Login
-        </button>
-
-        <Link
-          to="/register"
-          className="block text-center text-sm text-gray-600 mt-4"
-        >
-          Create an account
-        </Link>
-      </div>
+      <button onClick={handleLogin} disabled={loading}>
+        {loading ? "Logging in..." : "Login"}
+      </button>
     </div>
   );
-}
+};
+
+export default Login;
