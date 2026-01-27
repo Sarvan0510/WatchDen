@@ -1,0 +1,17 @@
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  background: #111;
+  color: white;
+}
+
+.app-content {
+  flex: 1;
+}
