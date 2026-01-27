@@ -3,7 +3,6 @@ package com.watchden.user.controller;
 import com.watchden.user.dto.UserProfileResponse;
 import com.watchden.user.dto.UserProfileUpdateRequest;
 import com.watchden.user.service.UserProfileService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -13,10 +12,13 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
-@RequiredArgsConstructor
 public class UserProfileController {
 
     private final UserProfileService userProfileService;
+    
+    public UserProfileController(UserProfileService userProfileService) {
+		this.userProfileService = userProfileService;
+	}
 
     @GetMapping("/{userId}")
     public ResponseEntity<UserProfileResponse> getUserProfile(@PathVariable Long userId) {

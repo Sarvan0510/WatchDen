@@ -15,13 +15,14 @@ import com.watchden.user.dto.UserProfileUpdateRequest;
 import com.watchden.user.entity.UserProfile;
 import com.watchden.user.repository.UserProfileRepository;
 
-import lombok.RequiredArgsConstructor;
-
 @Service
-@RequiredArgsConstructor
 public class UserProfileService {
 	
 	public final UserProfileRepository userProfileRepository;
+	
+	public UserProfileService(UserProfileRepository userProfileRepository) {
+		this.userProfileRepository = userProfileRepository;
+	}
 	
 	public UserProfileResponse getProfileByUserId(long userId) {
 		UserProfile profile = userProfileRepository.findByUserId(userId)
