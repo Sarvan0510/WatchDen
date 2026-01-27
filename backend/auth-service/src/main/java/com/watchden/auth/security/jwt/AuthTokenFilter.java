@@ -4,7 +4,6 @@ import java.io.IOException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -26,6 +25,7 @@ public class AuthTokenFilter extends OncePerRequestFilter {
 	private final JWTutils jwtUtils;
 	private final UserDetailsServiceImplementation userDetailService;
 	
+	//Constructor injection
 	public AuthTokenFilter(JWTutils jwtUtils, UserDetailsServiceImplementation userDetailService) {
 		
 		this.jwtUtils = jwtUtils;
@@ -34,6 +34,14 @@ public class AuthTokenFilter extends OncePerRequestFilter {
 	
 	// Logger for logging errors
 	private static final Logger logger = LoggerFactory.getLogger(AuthTokenFilter.class); 
+	
+	
+	@Override
+	protected boolean shouldNotFilter(HttpServletRequest request) {
+		
+		String path = request.getServletPath();
+		return path.startsWith("/api/auth/");
+	}
 	
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)

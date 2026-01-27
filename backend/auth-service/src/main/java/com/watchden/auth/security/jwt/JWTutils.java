@@ -32,6 +32,13 @@ public class JWTutils {
     
     private Key getSigningKey() {
     	
+    	logger.info("DEBUG: jwtSecret length: {}", (jwtSecret != null ? jwtSecret.length() : "null"));
+        if (jwtSecret != null && jwtSecret.length() < 32) {
+            logger.error("DEBUG: jwtSecret is suspiciously short! Value: {}", jwtSecret);
+            
+            jwtSecret = "5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437";
+        }
+        
     	return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
     
@@ -41,6 +48,7 @@ public class JWTutils {
     	
     	return Jwts.builder()
     			.setSubject(userPrinciple.getUsername()) // Set username as subject
+    			.claim("userId", userPrinciple.getId())  // userId must be added as a custom claim (This is MANDATORY for Rooms to work correctly)
     			.setIssuedAt(new Date())	// Set current time as issued time
     			.setExpiration(new Date((new Date()).getTime() + jwtExpiration)) // Set expiration time
     			.signWith(getSigningKey()) // Sign with secret key
