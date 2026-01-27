@@ -62,6 +62,12 @@ export const sendMessage = (roomId, messageContent) => {
 
 export const disconnectSocket = () => {
   if (stompClient) {
-    stompClient.disconnect();
+    // 🔴 Only try to disconnect if we are actually connected
+    if (stompClient.connected) {
+      stompClient.disconnect(() => {
+        console.log("Disconnected");
+      });
+    }
+    stompClient = null;
   }
 };

@@ -32,7 +32,8 @@ public class GlobalExceptionHandler {
     // Handle general exceptions
     @ExceptionHandler(Exception.class)
     public ResponseEntity<String> handleGeneralException(Exception ex) {
-        
+    	
+    	ex.printStackTrace();     
     	logger.error("Unhandled exception occurred", ex);
     	
     	return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred");
