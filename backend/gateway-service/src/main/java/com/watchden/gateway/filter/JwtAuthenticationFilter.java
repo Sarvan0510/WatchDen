@@ -40,7 +40,6 @@ public class JwtAuthenticationFilter implements GlobalFilter {
         }
 
         String token = authHeader.substring(7);
-
         try {
             Claims claims = jwtUtil.validateAndGetClaims(token);
 
@@ -57,7 +56,6 @@ public class JwtAuthenticationFilter implements GlobalFilter {
                             .build();
 
             return chain.filter(modifiedExchange);
-
         } 
         catch (Exception e) {
             

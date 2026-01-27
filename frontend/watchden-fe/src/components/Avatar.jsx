@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import "./Avatar.css"; // We will add a few lines of CSS below
+import "./Avatar.css";
 
 const Avatar = ({ src, name, size = "md" }) => {
   const [imgError, setImgError] = useState(false);
 
-  // Helper: Get initials from name (e.g., "John Doe" -> "JD")
+  // Helper: Get initials
   const getInitials = (fullName) => {
     if (!fullName) return "?";
     const parts = fullName.split(" ");
@@ -12,22 +12,23 @@ const Avatar = ({ src, name, size = "md" }) => {
     return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
   };
 
-  // Base URL for backend images (Ensure this matches your Gateway/Backend port)
-  // If src is already a full URL (like http://...), this won't break it.
+  // Helper: Construct full URL
   const getFullUrl = (path) => {
     if (!path) return "";
     if (path.startsWith("http")) return path;
-    return `http://localhost:8084${path}`; // Pointing to User Service directly for now
+
+    // CRITICAL: Pointing directly to User Service (8084) for static files
+    // because Gateway might not be configured to serve the "uploads" folder yet.
+    return `http://localhost:8084${path}`;
   };
 
-  // If image exists and hasn't failed, show Image. Otherwise, show Initials.
   if (src && !imgError) {
     return (
       <img
         src={getFullUrl(src)}
         alt={name}
         className={`avatar avatar-${size}`}
-        onError={() => setImgError(true)} // Fallback if 404
+        onError={() => setImgError(true)}
       />
     );
   }

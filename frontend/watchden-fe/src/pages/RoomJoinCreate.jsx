@@ -1,75 +1,84 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { roomApi } from "../api/room.api";
 
 const RoomJoinCreate = () => {
-  const [roomId, setRoomId] = useState("");
+  const [activeTab, setActiveTab] = useState("create"); // 'create' or 'join'
+  const [roomName, setRoomName] = useState("");
+  const [roomCode, setRoomCode] = useState("");
   const navigate = useNavigate();
 
-  const handleJoin = () => {
-    if (!roomId.trim()) return;
-    navigate(`/room/${roomId}`);
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    try {
+      // Calls POST /api/rooms
+      const newRoom = await roomApi.createRoom({ name: roomName });
+      navigate(`/room/${newRoom.roomCode}`); // Redirect to the new room
+    } catch (error) {
+      alert("Failed to create room");
+    }
   };
 
-  const handleCreate = () => {
-    // In a real app, call Room Service to get a new ID
-    const newId = "room-" + Math.floor(Math.random() * 10000);
-    navigate(`/room/${newId}`);
+  const handleJoin = async (e) => {
+    e.preventDefault();
+    try {
+      // Calls POST /api/rooms/join/{code}
+      await roomApi.joinRoom(roomCode);
+      navigate(`/room/${roomCode}`);
+    } catch (error) {
+      alert("Invalid Room Code or Room Full");
+    }
   };
 
   return (
     <div
-      className="join-container"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        height: "100vh",
-        background: "#1a1a1a",
-        color: "white",
-        gap: "20px",
-      }}
+      className="join-create-container"
+      style={{ maxWidth: "400px", margin: "50px auto" }}
     >
-      <h2>Join or Create a Room</h2>
-
-      <div style={{ display: "flex", gap: "10px" }}>
-        <input
-          type="text"
-          placeholder="Enter Room ID"
-          value={roomId}
-          onChange={(e) => setRoomId(e.target.value)}
-          style={{ padding: "10px", borderRadius: "4px", border: "none" }}
-        />
+      <div className="tabs" style={{ display: "flex", marginBottom: "20px" }}>
         <button
-          onClick={handleJoin}
-          style={{
-            padding: "10px 20px",
-            background: "#28a745",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
+          onClick={() => setActiveTab("create")}
+          disabled={activeTab === "create"}
         >
-          Join
+          Create Room
+        </button>
+        <button
+          onClick={() => setActiveTab("join")}
+          disabled={activeTab === "join"}
+        >
+          Join by Code
         </button>
       </div>
 
-      <span>OR</span>
-
-      <button
-        onClick={handleCreate}
-        style={{
-          padding: "10px 20px",
-          background: "#007bff",
-          color: "white",
-          border: "none",
-          borderRadius: "4px",
-          cursor: "pointer",
-        }}
-      >
-        Create New Room
-      </button>
+      {activeTab === "create" ? (
+        <form onSubmit={handleCreate}>
+          <h3>Create New Room</h3>
+          <input
+            type="text"
+            placeholder="Room Name"
+            value={roomName}
+            onChange={(e) => setRoomName(e.target.value)}
+            required
+          />
+          <button type="submit" style={{ marginTop: "10px" }}>
+            Create & Join
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={handleJoin}>
+          <h3>Join Existing Room</h3>
+          <input
+            type="text"
+            placeholder="Enter Room Code"
+            value={roomCode}
+            onChange={(e) => setRoomCode(e.target.value)}
+            required
+          />
+          <button type="submit" style={{ marginTop: "10px" }}>
+            Join Room
+          </button>
+        </form>
+      )}
     </div>
   );
 };

@@ -1,47 +1,59 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { sendMessage } from "../../socket/roomSocket";
+import Avatar from "../../components/Avatar";
 
-const ChatPanel = ({ messages, onSendMessage, currentUser }) => {
-  const [text, setText] = useState("");
+const ChatPanel = ({ messages, roomCode }) => {
+  const [input, setInput] = useState("");
   const messagesEndRef = useRef(null);
+  const currentUser = JSON.parse(localStorage.getItem("user"));
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom when new message arrives
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = () => {
-    if (!text.trim()) return;
-    onSendMessage(text);
-    setText("");
+  const handleSend = (e) => {
+    e.preventDefault();
+    if (input.trim()) {
+      sendMessage(roomCode, input);
+      setInput("");
+    }
   };
 
   return (
     <div className="chat-panel">
       <div className="messages-list">
-        {messages.map((m, i) => {
-          const isMe = m.senderId === currentUser.id;
+        {messages.map((msg, index) => {
+          const isMe = msg.sender === currentUser?.username;
           return (
             <div
-              key={i}
-              className={`message-bubble ${isMe ? "my-msg" : "other-msg"}`}
+              key={index}
+              className={`message-bubble ${isMe ? "my-message" : ""}`}
             >
-              <small className="sender-name">{m.senderId}</small>
-              <p>{m.content}</p>
+              {!isMe && (
+                <div className="message-avatar">
+                  <Avatar name={msg.sender} size="sm" />
+                </div>
+              )}
+              <div className="message-content">
+                {!isMe && <span className="sender-name">{msg.sender}</span>}
+                <p>{msg.content}</p>
+              </div>
             </div>
           );
         })}
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="input-area">
+      <form onSubmit={handleSend} className="chat-input-area">
         <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          placeholder="Type here..."
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Type a message..."
         />
-        <button onClick={handleSend}>Send</button>
-      </div>
+        <button type="submit">Send</button>
+      </form>
     </div>
   );
 };

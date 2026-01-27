@@ -7,7 +7,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/chat")
-@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 public class ChatController {
 
     private final RedisTemplate<String, Object> redisTemplate;
