@@ -79,6 +79,12 @@ public class AuthTokenFilter extends OncePerRequestFilter {
 		filterChain.doFilter(request, response);
 	}
 	
+	@Override
+	protected boolean shouldNotFilter(HttpServletRequest request) {
+	    String path = request.getServletPath();
+	    return path.startsWith("/api/auth/");
+	}
+	
 	private String parseJWT(HttpServletRequest request) {
 		
 		//Get the Authorization header from the request
