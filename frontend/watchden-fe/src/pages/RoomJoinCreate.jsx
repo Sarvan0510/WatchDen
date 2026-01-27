@@ -1,73 +1,77 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api/api";
 
-export default function RoomJoinCreate() {
-  const [roomName, setRoomName] = useState("");
+const RoomJoinCreate = () => {
   const [roomId, setRoomId] = useState("");
   const navigate = useNavigate();
 
-  const createRoom = async () => {
-    try {
-      const res = await api.post("/rooms/create", {
-        name: roomName,
-        isPrivate: false,
-      });
-      navigate(`/rooms/${res.data.id}`);
-    } catch {
-      alert("Failed to create room");
-    }
+  const handleJoin = () => {
+    if (!roomId.trim()) return;
+    navigate(`/room/${roomId}`);
   };
 
-  const joinRoom = async () => {
-    try {
-      await api.post("/rooms/join", { roomId });
-      navigate(`/rooms/${roomId}`);
-    } catch {
-      alert("Failed to join room");
-    }
+  const handleCreate = () => {
+    // In a real app, call Room Service to get a new ID
+    const newId = "room-" + Math.floor(Math.random() * 10000);
+    navigate(`/room/${newId}`);
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <div className="w-full max-w-md bg-white p-6 rounded shadow space-y-6">
-        {/* Create Room */}
-        <div>
-          <h2 className="text-lg font-semibold mb-3">Create Room</h2>
+    <div
+      className="join-container"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100vh",
+        background: "#1a1a1a",
+        color: "white",
+        gap: "20px",
+      }}
+    >
+      <h2>Join or Create a Room</h2>
 
-          <input
-            className="w-full border p-2 mb-3 rounded"
-            placeholder="Room Name"
-            value={roomName}
-            onChange={(e) => setRoomName(e.target.value)}
-          />
-
-          <button
-            onClick={createRoom}
-            className="w-full bg-black text-white py-2 rounded"
-          >
-            Create
-          </button>
-        </div>
-
-        <hr />
-
-        {/* Join Room */}
-        <div>
-          <h2 className="text-lg font-semibold mb-3">Join Room</h2>
-
-          <input
-            className="w-full border p-2 mb-3 rounded"
-            placeholder="Room ID"
-            value={roomId}
-            onChange={(e) => setRoomId(e.target.value)}
-          />
-
-          <button onClick={joinRoom} className="w-full border py-2 rounded">
-            Join
-          </button>
-        </div>
+      <div style={{ display: "flex", gap: "10px" }}>
+        <input
+          type="text"
+          placeholder="Enter Room ID"
+          value={roomId}
+          onChange={(e) => setRoomId(e.target.value)}
+          style={{ padding: "10px", borderRadius: "4px", border: "none" }}
+        />
+        <button
+          onClick={handleJoin}
+          style={{
+            padding: "10px 20px",
+            background: "#28a745",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
+        >
+          Join
+        </button>
       </div>
+
+      <span>OR</span>
+
+      <button
+        onClick={handleCreate}
+        style={{
+          padding: "10px 20px",
+          background: "#007bff",
+          color: "white",
+          border: "none",
+          borderRadius: "4px",
+          cursor: "pointer",
+        }}
+      >
+        Create New Room
+      </button>
     </div>
   );
-}
+};
+
+export default RoomJoinCreate;
