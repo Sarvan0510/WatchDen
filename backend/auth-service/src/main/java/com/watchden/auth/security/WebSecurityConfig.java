@@ -6,8 +6,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -20,7 +20,7 @@ import com.watchden.auth.security.jwt.AuthTokenFilter;
 import com.watchden.auth.security.services.UserDetailsServiceImplementation;
 
 @Configuration
-@EnableMethodSecurity
+@EnableWebSecurity
 public class WebSecurityConfig {
 	
 	@Autowired
@@ -78,13 +78,15 @@ public class WebSecurityConfig {
 			// Configure authorization for HTTP requests
 			.authorizeHttpRequests(auth -> auth
 					
-					.requestMatchers("/api/auth/**").permitAll()
-					.requestMatchers("/api/test/**").permitAll()
+					.requestMatchers(
+							"/api/auth/signup",
+							"/api/auth/signin"
+					).permitAll()
 					.anyRequest().authenticated()
 			);
 		
 		//Require authentication for any other request
-		//http.authenticationProvider(authenticationProvider());
+		http.authenticationProvider(authenticationProvider());
 		
 		// Add the JWT token filter before the username/password authentication filter
 		http.addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
