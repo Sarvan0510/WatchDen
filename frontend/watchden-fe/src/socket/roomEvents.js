@@ -1,7 +1,17 @@
 export const ROOM_EVENTS = {
-  JOIN_ROOM: "JOIN",
+  // Messages
   CHAT_MESSAGE: "CHAT",
-  USER_JOINED: "USER_JOINED", // Custom event for UI notification
-  USER_LEFT: "USER_LEFT", // Custom event for UI notification
-  SYNC_VIDEO: "SYNC", // For future video syncing
+
+  // Participant Management
+  USER_JOINED: "JOIN",
+  USER_LEFT: "LEAVE",
+
+  // Video Synchronization
+  VIDEO_PLAY: "PLAY",
+  VIDEO_PAUSE: "PAUSE",
+  VIDEO_SEEK: "SEEK",
+  VIDEO_SYNC: "SYNC", // Periodic sync from host
+
+  // Error Handling
+  ERROR: "ERROR",
 };

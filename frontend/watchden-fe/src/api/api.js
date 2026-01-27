@@ -1,21 +1,39 @@
 import axios from "axios";
 
-// Point this to your Spring Cloud Gateway URL (e.g., port 8080)
-const API_BASE_URL = "http://localhost:8084";
+// 1. Point to the Gateway (Port 8080)
+const API_BASE_URL = "http://localhost:8080/api";
 
-export const apiClient = axios.create({
+const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true, // If using cookies/sessions
 });
 
-// Interceptor to attach tokens (if you add JWT later)
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+// 2. Request Interceptor: Attach Token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers["Authorization"] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// 3. Response Interceptor: Handle Token Expiry
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      // If Gateway says "Unauthorized", log the user out
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
   }
-  return config;
-});
+);
+
+export default api;

@@ -1,64 +1,71 @@
-import { useState } from "react";
-import { login } from "../api/auth.api";
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../features/auth/useAuth";
+import Loader from "../components/Loader";
 
 const Login = () => {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [credentials, setCredentials] = useState({
+    username: "",
+    password: "",
+  });
+  const { login, loading, error } = useAuth();
+  const navigate = useNavigate();
 
-  const handleLogin = async () => {
-    if (!username || !password) {
-      alert("Username and password required");
-      return;
-    }
+  const handleChange = (e) => {
+    setCredentials({ ...credentials, [e.target.name]: e.target.value });
+  };
 
-    try {
-      setLoading(true);
-
-      const res = await login({
-        username,
-        password,
-      });
-
-      const token = res.data.token;
-
-      if (!token) {
-        alert("Login failed: no token received");
-        return;
-      }
-
-      localStorage.setItem("token", token);
-
-      // Redirect to a test room
-      window.location.href = "/rooms/room123";
-    } catch (err) {
-      console.error(err);
-      alert("Invalid username or password");
-    } finally {
-      setLoading(false);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const success = await login(credentials);
+    if (success) {
+      navigate("/rooms"); // Redirect to Room List on success
     }
   };
 
   return (
-    <div>
-      <h2>Login</h2>
+    <div className="auth-page">
+      <div className="auth-card">
+        <h2>Login</h2>
+        {error && (
+          <div className="error-message" style={{ color: "red" }}>
+            {error}
+          </div>
+        )}
 
-      <input
-        placeholder="Username"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-      />
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Username</label>
+            <input
+              name="username"
+              type="text"
+              onChange={handleChange}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label>Password</label>
+            <input
+              name="password"
+              type="password"
+              onChange={handleChange}
+              required
+            />
+          </div>
 
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
+          <button
+            type="submit"
+            disabled={loading}
+            style={{ marginTop: "1rem" }}
+          >
+            {loading ? <Loader /> : "Login"}
+          </button>
+        </form>
 
-      <button onClick={handleLogin} disabled={loading}>
-        {loading ? "Logging in..." : "Login"}
-      </button>
+        <p style={{ marginTop: "10px" }}>
+          Don't have an account? <Link to="/register">Register</Link>
+        </p>
+      </div>
     </div>
   );
 };

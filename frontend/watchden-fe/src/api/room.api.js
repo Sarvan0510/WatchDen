@@ -1,11 +1,27 @@
-// ✅ Fix: Use curly braces and alias 'apiClient' to 'api'
-import { apiClient as api } from "./api";
+import api from "./api";
 
-// ⚠️ Note: If your api.js baseURL is 'http://localhost:8080/api/v1',
-// you should remove the leading "/api" here to avoid "/api/v1/api/rooms".
+export const roomApi = {
+  createRoom: async (roomData) => {
+    // POST /api/rooms (Gateway adds X-USER-ID)
+    const response = await api.post("/rooms", roomData);
+    return response.data;
+  },
 
-export const getRooms = () => api.get("/rooms");
+  joinRoom: async (roomCode) => {
+    // POST /api/rooms/join/{roomCode}
+    const response = await api.post(`/rooms/join/${roomCode}`);
+    return response.data;
+  },
 
-export const joinRoom = (roomId) => api.post(`/rooms/${roomId}/join`);
+  getPublicRooms: async () => {
+    // GET /api/rooms/public
+    const response = await api.get("/rooms/public");
+    return response.data;
+  },
 
-export const leaveRoom = (roomId) => api.post(`/rooms/${roomId}/leave`);
+  leaveRoom: async (roomId) => {
+    // POST /api/rooms/{roomId}/leave
+    const response = await api.post(`/rooms/${roomId}/leave`);
+    return response.data;
+  },
+};

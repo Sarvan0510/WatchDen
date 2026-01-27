@@ -1,101 +1,67 @@
-import { ROOM_EVENTS } from "./roomEvents";
+import SockJS from "sockjs-client";
+import Stomp from "stompjs";
 
-let socket = null;
+let stompClient = null;
 
-/**
- * Connects to the WebSocket room.
- * @param {string} roomId - The ID of the room to join.
- * @param {string} userId - The real User ID from the JWT token.
- * @param {function} onEvent - Callback to handle incoming messages.
- */
-export const connectToRoom = (roomId, userId, onEvent) => {
-  if (socket) {
-    // Only close if it's open/connecting to avoid errors
-    if (
-      socket.readyState === WebSocket.OPEN ||
-      socket.readyState === WebSocket.CONNECTING
-    ) {
-      socket.close();
-    }
-    socket = null;
-  }
+export const connectSocket = (roomId, onMessageReceived, onUserJoined) => {
+  // Pointing to the Gateway (8080). Ensure your Gateway forwards /ws requests to Chat Service!
+  // If Gateway fails for WS, fallback to direct Chat Service: 'http://localhost:8083/ws'
+  const socket = new SockJS("http://localhost:8080/ws");
+  stompClient = Stomp.over(socket);
 
-  // Ensure this matches your Gateway port (8080)
-  const ws = new WebSocket("ws://localhost:8083/ws/chat");
-  socket = ws;
+  stompClient.debug = null; // Disable debug logs in console
 
-  ws.onopen = () => {
-    if (ws.readyState === WebSocket.OPEN) {
-      console.log(`✅ WS Connected as ${userId}. Joining room: ${roomId}`);
-      ws.send(
-        JSON.stringify({
-          type: "JOIN",
-          roomId: roomId,
-          senderId: userId, // ✅ Now sending the REAL ID
-          content: "",
-          timestamp: Date.now(),
-        })
-      );
-    }
-  };
+  stompClient.connect(
+    {},
+    () => {
+      // 1. Subscribe to Public Chat Messages
+      stompClient.subscribe(`/topic/room/${roomId}`, (payload) => {
+        const message = JSON.parse(payload.body);
+        onMessageReceived(message);
+      });
 
-  ws.onmessage = (event) => {
-    try {
-      const msg = JSON.parse(event.data);
-      if (!msg.type) return;
+      // 2. Subscribe to Participant Updates (Joins/Leaves)
+      stompClient.subscribe(`/topic/room/${roomId}/participants`, (payload) => {
+        onUserJoined(JSON.parse(payload.body));
+      });
 
-      switch (msg.type) {
-        case "CHAT":
-          onEvent({ type: ROOM_EVENTS.CHAT_MESSAGE, payload: msg });
-          break;
-        case "JOIN":
-          onEvent({ type: ROOM_EVENTS.USER_JOINED, payload: msg });
-          break;
-        case "LEAVE":
-          onEvent({ type: ROOM_EVENTS.USER_LEFT, payload: msg });
-          break;
-        case "SYNC": // Ready for Phase 2
-          onEvent({ type: ROOM_EVENTS.VIDEO_SYNC, payload: msg });
-          break;
-        default:
-          console.warn("Unknown message type:", msg.type);
+      // 3. Notify others that I have joined
+      const user = JSON.parse(localStorage.getItem("user"));
+      if (user) {
+        stompClient.send(
+          `/app/chat/${roomId}/join`,
+          {},
+          JSON.stringify({
+            sender: user.username,
+            type: "JOIN",
+          })
+        );
       }
-    } catch (e) {
-      console.error("Parse error:", e);
+    },
+    (error) => {
+      console.error("Socket error:", error);
     }
-  };
-
-  ws.onerror = (err) => console.error("❌ WS Error:", err);
-
-  ws.onclose = () => {
-    console.log("🔌 WS Disconnected");
-    if (socket === ws) socket = null;
-  };
+  );
 };
 
-export const sendMessage = ({ roomId, content, senderId }) => {
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    const payload = {
+export const sendMessage = (roomId, messageContent) => {
+  if (stompClient && stompClient.connected) {
+    const user = JSON.parse(localStorage.getItem("user"));
+    const chatMessage = {
+      sender: user.username,
+      content: messageContent,
       type: "CHAT",
-      roomId,
-      senderId: senderId, // ✅ Must match the JWT ID
-      content,
-      timestamp: Date.now(),
     };
-    socket.send(JSON.stringify(payload));
-  } else {
-    console.warn("⚠️ Cannot send: Socket not open");
+    stompClient.send(
+      `/app/chat/${roomId}/sendMessage`,
+      {},
+      JSON.stringify(chatMessage)
+    );
   }
 };
 
-export const disconnectRoom = () => {
-  if (socket) {
-    if (
-      socket.readyState === WebSocket.OPEN ||
-      socket.readyState === WebSocket.CONNECTING
-    ) {
-      socket.close();
-    }
-    socket = null;
+export const disconnectSocket = () => {
+  if (stompClient) {
+    stompClient.disconnect();
   }
 };

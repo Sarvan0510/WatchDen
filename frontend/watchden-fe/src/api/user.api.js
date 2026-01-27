@@ -1,34 +1,34 @@
-import api from "./api"; // Assuming this is your configured Axios instance
+import api from "./api";
 
 export const userApi = {
-  // Get Profile (Public or Private)
   getProfile: async (userId) => {
-    const response = await api.get(`/api/users/${userId}`);
+    // GET /api/users/{userId}
+    const response = await api.get(`/users/${userId}`);
     return response.data;
   },
 
-  // Update Profile (Bio, Display Name)
   updateProfile: async (data) => {
-    const response = await api.put("/api/users/me", data);
+    // PUT /api/users/me (Gateway adds X-USER-ID)
+    const response = await api.put("/users/me", data);
     return response.data;
   },
 
-  // Upload Avatar (The tricky part)
+  // Matches @PostMapping("/batch")
+  getBatchUsers: async (userIdList) => {
+    const response = await api.post("/users/batch", userIdList);
+    return response.data;
+  },
+
+  // Matches @PostMapping("/upload-avatar")
   uploadAvatar: async (file) => {
     const formData = new FormData();
     formData.append("file", file);
 
-    const response = await api.post("/api/users/upload-avatar", formData, {
+    const response = await api.post("/users/upload-avatar", formData, {
       headers: {
-        "Content-Type": "multipart/form-data",
+        "Content-Type": "multipart/form-data", // Critical for file upload
       },
     });
-    return response.data;
-  },
-
-  // Batch Fetch (For Chat)
-  getBatchUsers: async (userIds) => {
-    const response = await api.post("/api/users/batch", userIds);
     return response.data;
   },
 };

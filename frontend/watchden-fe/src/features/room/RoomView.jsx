@@ -1,21 +1,16 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { apiClient as api } from "../../api/api"; // Ensure this points to port 8080
+import api from "../../api/api"; // Ensure this matches your export in api.js (api vs apiClient)
 import RoomHeader from "./RoomHeader";
 import VideoPlayer from "./VideoPlayer";
 import ChatPanel from "./ChatPanel";
-import {
-  connectToRoom,
-  disconnectRoom,
-  sendMessage,
-} from "../../socket/roomSocket";
-import { ROOM_EVENTS } from "../../socket/roomEvents";
+import ParticipantList from "./ParticipantList"; // NEW Component
+import { connectSocket, disconnectSocket } from "../../socket/roomSocket"; // Updated imports
 import "./room.css";
 
-// --- 1. JWT Decoder Helper ---
-// Extracts the "sub" (User ID) from the token so React knows who is logged in.
+// --- 1. JWT Decoder Helper (KEPT AS IS) ---
 const getUserFromToken = () => {
-  const token = localStorage.getItem("token"); // Or whatever key you save it as
+  const token = localStorage.getItem("token");
   if (!token) return null;
 
   try {
@@ -30,8 +25,8 @@ const getUserFromToken = () => {
     );
 
     const payload = JSON.parse(jsonPayload);
-    // Adjust 'sub' if your Auth Service uses 'userId' or 'username' in the claim
-    return { id: payload.sub, username: payload.username || "User" };
+    // Return standardized user object
+    return { id: payload.userId || payload.sub, username: payload.sub };
   } catch (e) {
     console.error("Invalid Token", e);
     return null;
@@ -39,83 +34,98 @@ const getUserFromToken = () => {
 };
 
 const RoomView = () => {
-  const { roomId } = useParams();
+  const { roomCode } = useParams(); // Changed roomId to roomCode to match routes
   const navigate = useNavigate();
-  const [messages, setMessages] = useState([]);
 
-  // --- 2. Initialize Identity ---
-  const [user] = useState(getUserFromToken());
+  const [messages, setMessages] = useState([]);
+  const [participants, setParticipants] = useState([]);
+  const [user, setUser] = useState(getUserFromToken());
 
   useEffect(() => {
-    // Security Redirect
+    // 1. Security Check
     if (!user) {
-      // If no token, kick them out
       navigate("/login");
       return;
     }
-    if (!roomId) {
-      navigate("/");
+    if (!roomCode) {
+      navigate("/rooms");
       return;
     }
 
-    // --- 3. Load History via Gateway ---
+    // 2. Load Chat History
     const loadHistory = async () => {
       try {
-        // Calls GET http://localhost:8080/api/chat/history/{roomId}
-        // (Make sure your Gateway route is configured to strip /api if needed)
-        const response = await api.get(`/api/chat/history/${roomId}`);
+        // Ensure this endpoint matches your Chat Controller
+        const response = await api.get(`/chat/history/${roomCode}`);
         if (Array.isArray(response.data)) {
           setMessages(response.data);
         }
       } catch (err) {
-        console.error("History Error:", err);
+        console.error("Failed to load history:", err);
       }
     };
     loadHistory();
 
-    // --- 4. Connect WebSocket via Gateway ---
-    // We pass 'user.id' so the Join message has the correct sender
-    connectToRoom(roomId, user.id, (event) => {
-      switch (event.type) {
-        case ROOM_EVENTS.CHAT_MESSAGE:
-          setMessages((prev) => [...prev, event.payload]);
-          break;
-        case ROOM_EVENTS.USER_JOINED:
-          console.log(`User ${event.payload.senderId} joined`);
-          break;
-        case ROOM_EVENTS.VIDEO_SYNC:
-          // You will use this in Phase 2
-          break;
+    // 3. Connect to WebSocket
+    // We pass 3 callbacks: Message Received, Participant Joined, Participant Left (optional)
+    connectSocket(
+      roomCode,
+      (newMessage) => {
+        setMessages((prev) => [...prev, newMessage]);
+      },
+      (participantUpdate) => {
+        // Logic to update participant list
+        // If backend sends the FULL list every time:
+        if (Array.isArray(participantUpdate)) {
+          setParticipants(participantUpdate);
+        } else {
+          // If backend sends single JOIN events, we assume for now it sends full list
+          // or we just log it until backend is perfect.
+          console.log("Participant update:", participantUpdate);
+        }
       }
-    });
+    );
 
-    return () => disconnectRoom();
-  }, [roomId, navigate, user]);
+    // Cleanup on unmount
+    return () => {
+      disconnectSocket();
+    };
+  }, [roomCode, navigate, user]);
 
-  const handleSendMessage = (text) => {
-    if (!user) return;
-    sendMessage({
-      roomId,
-      content: text,
-      senderId: user.id, // Send the Real ID from the Token
-    });
-  };
-
-  if (!user) return null; // Don't render if redirecting
+  if (!user) return null;
 
   return (
-    <div className="room-container">
-      <RoomHeader roomId={roomId} />
-      <div className="room-content-wrapper">
-        <div className="video-section">
-          <VideoPlayer roomId={roomId} />
+    <div
+      className="room-wrapper"
+      style={{ height: "100vh", display: "flex", flexDirection: "column" }}
+    >
+      {/* Header stays at top */}
+      <RoomHeader roomId={roomCode} />
+
+      {/* Main Content Area */}
+      <div className="room-container">
+        {/* Left Side: Video Player */}
+        <div className="main-content">
+          <div className="video-section">
+            <VideoPlayer roomCode={roomCode} />
+          </div>
         </div>
-        <div className="chat-section">
-          <ChatPanel
-            messages={messages}
-            currentUser={user} // Pass identity to ChatPanel
-            onSendMessage={handleSendMessage}
-          />
+
+        {/* Right Side: Sidebar */}
+        <div className="sidebar">
+          {/* Top Half: Participants */}
+          <div className="participants-section">
+            <ParticipantList participants={participants} />
+          </div>
+
+          {/* Bottom Half: Chat */}
+          <div className="chat-section">
+            <ChatPanel
+              messages={messages}
+              roomCode={roomCode}
+              // ChatPanel now handles message sending internally via socket
+            />
+          </div>
         </div>
       </div>
     </div>

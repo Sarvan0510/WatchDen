@@ -1,41 +1,36 @@
-import { useNavigate } from "react-router-dom";
+import React from "react";
+import { Link, Navigate } from "react-router-dom";
+import { useAuth } from "../features/auth/useAuth";
+import "../styles/global.css";
 
 const Landing = () => {
-  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // If already logged in, skip landing and go to rooms
+  if (user) {
+    return <Navigate to="/rooms" replace />;
+  }
 
   return (
-    <div style={styles.container}>
+    <div
+      className="landing-container"
+      style={{ textAlign: "center", marginTop: "100px" }}
+    >
       <h1>Welcome to WatchDen</h1>
       <p>Watch videos together with friends in real-time.</p>
-      <div style={styles.actions}>
-        <button onClick={() => navigate("/login")} style={styles.button}>
-          Start Watching
-        </button>
+
+      <div className="action-buttons" style={{ marginTop: "20px" }}>
+        <Link to="/login">
+          <button className="btn-primary" style={{ marginRight: "10px" }}>
+            Login
+          </button>
+        </Link>
+        <Link to="/register">
+          <button className="btn-secondary">Register</button>
+        </Link>
       </div>
     </div>
   );
-};
-
-const styles = {
-  container: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100vh",
-    background: "#121212",
-    color: "white",
-  },
-  actions: { marginTop: "20px" },
-  button: {
-    padding: "10px 20px",
-    fontSize: "1.2rem",
-    cursor: "pointer",
-    background: "#007bff",
-    color: "white",
-    border: "none",
-    borderRadius: "5px",
-  },
 };
 
 export default Landing;

@@ -14,7 +14,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 public class UserProfileController {
 
     private final UserProfileService userProfileService;

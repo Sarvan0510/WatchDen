@@ -6,16 +6,19 @@ const ProfilePage = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Hardcoded ID for testing, later retrieve from Auth Context/Token
-  const myUserId = 101;
+  // Retrieve the logged-in user's ID from localStorage (saved during login)
+  const userString = localStorage.getItem("user");
+  const currentUser = userString ? JSON.parse(userString) : null;
 
   useEffect(() => {
-    loadProfile();
+    if (currentUser?.id) {
+      loadProfile(currentUser.id);
+    }
   }, []);
 
-  const loadProfile = async () => {
+  const loadProfile = async (id) => {
     try {
-      const data = await userApi.getProfile(myUserId);
+      const data = await userApi.getProfile(id);
       setProfile(data);
     } catch (error) {
       console.error("Failed to load profile", error);
@@ -24,30 +27,31 @@ const ProfilePage = () => {
     }
   };
 
+  if (!currentUser) return <div>Please log in to view profile.</div>;
   if (loading) return <div>Loading...</div>;
 
   return (
-    <div className="profile-page">
+    <div className="profile-page-container">
       <h1>My Profile</h1>
 
-      <div className="profile-section">
+      <div className="card">
         <h3>Avatar</h3>
         <AvatarUpload
           currentAvatar={profile?.avatarUrl}
-          username={profile?.username}
+          username={profile?.username || currentUser.username}
           onUploadSuccess={(newUrl) => {
-            // Update local state immediately so UI reflects change
             setProfile((prev) => ({ ...prev, avatarUrl: newUrl }));
           }}
         />
       </div>
 
-      <div className="profile-details">
+      <div className="card" style={{ marginTop: "20px" }}>
+        <h3>Details</h3>
         <p>
           <strong>Username:</strong> {profile?.username}
         </p>
         <p>
-          <strong>Display Name:</strong> {profile?.displayName}
+          <strong>Display Name:</strong> {profile?.displayName || "Not set"}
         </p>
       </div>
     </div>

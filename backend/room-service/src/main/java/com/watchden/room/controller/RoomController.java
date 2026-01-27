@@ -24,26 +24,20 @@ import jakarta.validation.Valid;
 public class RoomController {
 	
 	private final RoomService roomService;
-	
 	//Constructor injection
 	public RoomController(RoomService roomService) {
-		
 		this.roomService = roomService;
 	}
-	
 	
 	//---------------Create Room ---------------
 	@PostMapping
 	public ResponseEntity<CreateRoomResponseDTO> createRoom(
 			@Valid @RequestBody CreateRoomRequestDTO request,
 			@RequestHeader("X-USER-ID")Long userId)
-	{
-		
+	{	
 		CreateRoomResponseDTO response = roomService.createRoom(request, userId);
-		
 		return ResponseEntity.status(HttpStatus.CREATED).body(response);
 	}
-	
 	
 	//---------------Join Room ---------------
 	@PostMapping("/join/{roomCode}")
@@ -53,10 +47,8 @@ public class RoomController {
 	{
 		
 		roomService.joinRoom(roomCode, userId);
-		
 		return ResponseEntity.ok().build();
 	}
-	
 	
 	//---------------Leave Room ---------------
 	@PostMapping("/{roomId}/leave")
@@ -65,17 +57,14 @@ public class RoomController {
 			@RequestHeader("X-USER-ID")Long userId)
 	{
 		roomService.leaveRoom(roomId, userId);
-		
 		return ResponseEntity.noContent().build();
 	}
-	
 	
 	//---------------List Public Room ---------------
 	@GetMapping("/public")
 	public ResponseEntity<List<RoomListResponseDTO>> getPublicRooms(){
 		
 		List<RoomListResponseDTO> rooms = roomService.getPublicRooms();
-		
 		return ResponseEntity.ok(rooms);
 	}
 }
