@@ -102,14 +102,18 @@ public class RoomServiceImplementation implements RoomService {
 	// ---------------Leave Room-------------------
 	@Override
 	@Transactional
-	public void leaveRoom(Long roomId, Long userId) {
-		// TODO Auto-generated method stub
+	public void leaveRoom(String roomCode, Long userId) {
+		// Look up room by code
+		Room room = roomRepository.findByRoomCodeWithLock(roomCode)
+				.orElseThrow(() -> new RoomNotFoundException("Room not found with code: " + roomCode));
 
-		Room room = roomRepository.findById(roomId)
-				.orElseThrow(() -> new RoomNotFoundException("Room not found with id: " + roomId));
+		Long roomId = room.getId();
 
 		// Check first if user is participant
 		if (!roomParticipantRepository.existsByRoomIdAndUserId(roomId, userId)) {
+			// Idempotent: If not in room, just return or warn.
+			// Throwing exception might break frontend if state is out of sync.
+			// But sticking to strict logic for now.
 			throw new IllegalStateException("User is not a participant of this room");
 		}
 
@@ -132,6 +136,24 @@ public class RoomServiceImplementation implements RoomService {
 		}
 	}
 
+	// ---------------Get Room Details-------------------
+	@Override
+	public RoomListResponseDTO getRoomDetails(String roomCode) {
+		Room room = roomRepository.findByRoomCode(roomCode)
+				.orElseThrow(() -> new RoomNotFoundException("Room not found with code: " + roomCode));
+
+		long count = roomParticipantRepository.countByRoomId(room.getId());
+
+		return new RoomListResponseDTO(
+				room.getId(),
+				room.getRoomCode(),
+				room.getRoomName(),
+				room.getHostUserId(),
+				(int) count,
+				room.isPublic(),
+				room.getMaxUsers());
+	}
+
 	// ---------------List All Public Rooms-------------------
 	@Override
 	@Transactional
@@ -148,6 +170,7 @@ public class RoomServiceImplementation implements RoomService {
 							room.getId(),
 							room.getRoomCode(),
 							room.getRoomName(),
+							room.getHostUserId(),
 							(int) count,
 							room.isPublic(),
 							room.getMaxUsers());

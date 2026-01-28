@@ -22,66 +22,54 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/api/rooms")
 public class RoomController {
-	
+
 	private final RoomService roomService;
-	//Constructor injection
+
+	// Constructor injection
 	public RoomController(RoomService roomService) {
 		this.roomService = roomService;
 	}
-	
-	//---------------Create Room ---------------
+
+	// ---------------Create Room ---------------
 	@PostMapping
 	public ResponseEntity<CreateRoomResponseDTO> createRoom(
 			@Valid @RequestBody CreateRoomRequestDTO request,
-			@RequestHeader("X-USER-ID")Long userId)
-	{	
+			@RequestHeader("X-USER-ID") Long userId) {
 		CreateRoomResponseDTO response = roomService.createRoom(request, userId);
 		return ResponseEntity.status(HttpStatus.CREATED).body(response);
 	}
-	
-	//---------------Join Room ---------------
+
+	// ---------------Join Room ---------------
 	@PostMapping("/join/{roomCode}")
 	public ResponseEntity<Void> joinRoom(
 			@PathVariable String roomCode,
-			@RequestHeader("X-USER-ID")Long userId)
-	{
-		
+			@RequestHeader("X-USER-ID") Long userId) {
+
 		roomService.joinRoom(roomCode, userId);
 		return ResponseEntity.ok().build();
 	}
-	
-	//---------------Leave Room ---------------
-	@PostMapping("/{roomId}/leave")
+
+	// ---------------Leave Room ---------------
+	@PostMapping("/{roomCode}/leave")
 	public ResponseEntity<Void> leaveRoom(
-			@PathVariable Long roomId, 
-			@RequestHeader("X-USER-ID")Long userId)
-	{
-		roomService.leaveRoom(roomId, userId);
+			@PathVariable String roomCode,
+			@RequestHeader("X-USER-ID") Long userId) {
+		roomService.leaveRoom(roomCode, userId);
 		return ResponseEntity.noContent().build();
 	}
-	
-	//---------------List Public Room ---------------
+
+	// ---------------List Public Room ---------------
 	@GetMapping("/public")
-	public ResponseEntity<List<RoomListResponseDTO>> getPublicRooms(){
-		
+	public ResponseEntity<List<RoomListResponseDTO>> getPublicRooms() {
+
 		List<RoomListResponseDTO> rooms = roomService.getPublicRooms();
 		return ResponseEntity.ok(rooms);
 	}
+
+	// ---------------Get Room Details (MISSING) ---------------
+	@GetMapping("/{roomCode}")
+	public ResponseEntity<RoomListResponseDTO> getRoomDetails(@PathVariable String roomCode) {
+		RoomListResponseDTO response = roomService.getRoomDetails(roomCode);
+		return ResponseEntity.ok(response);
+	}
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

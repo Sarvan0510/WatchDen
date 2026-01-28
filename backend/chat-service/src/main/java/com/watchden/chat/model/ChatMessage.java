@@ -7,17 +7,18 @@ public class ChatMessage {
     public enum Type {
         JOIN,
         CHAT,
-        LEAVE
+        LEAVE,
+        HOST_LEFT // Added for Host Logic
     }
 
     private Type type;
-    
+
     // Allows frontend to send "room" or "roomId"
-    @JsonProperty("roomId") 
+    @JsonProperty("roomId")
     private String roomId;
 
     // Map 'sender' (Frontend) to 'senderId' (Backend)
-    @JsonProperty("sender") 
+    @JsonProperty("sender")
     private String senderId;
 
     private String content;
@@ -63,5 +64,15 @@ public class ChatMessage {
 
     public void setTimestamp(long timestamp) {
         this.timestamp = timestamp;
+    }
+
+    private Long userId;
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 }

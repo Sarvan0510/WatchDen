@@ -10,7 +10,7 @@ export const connectSocket = (roomId, onMessageReceived, onUserJoined) => {
 
   const socket = new SockJS("http://localhost:8083/ws");
   stompClient = Stomp.over(socket);
-  stompClient.debug = () => {};
+  stompClient.debug = () => { };
 
   stompClient.connect(
     {},
@@ -35,6 +35,7 @@ export const connectSocket = (roomId, onMessageReceived, onUserJoined) => {
           {},
           JSON.stringify({
             sender: user.username,
+            userId: user.id,
             type: "JOIN",
           })
         );
@@ -57,6 +58,23 @@ export const sendMessage = (roomId, messageContent) => {
       `/app/chat/${roomId}/sendMessage`,
       {},
       JSON.stringify(chatMessage)
+    );
+  }
+};
+
+export const notifyHostLeft = (roomId) => {
+  if (stompClient && stompClient.connected) {
+    const user = JSON.parse(localStorage.getItem("user"));
+    const message = {
+      sender: user.username,
+      type: "HOST_LEFT",
+      content: "Host has left the room. Closing in 5 seconds...",
+    };
+
+    stompClient.send(
+      `/app/chat/${roomId}/sendMessage`,
+      {},
+      JSON.stringify(message)
     );
   }
 };

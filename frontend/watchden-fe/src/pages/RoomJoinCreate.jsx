@@ -58,11 +58,12 @@ const RoomJoinCreate = () => {
       const status = error.response?.status;
       const message = error.response?.data?.message || "";
 
-      if (status === 409 || message.toLowerCase().includes("already joined")) {
+      // Only navigate if explicitly "Already Joined"
+      if (message.toLowerCase().includes("already joined")) {
         console.log("User already in room, navigating anyway...");
         navigate(`/room/${roomCode}`);
       } else {
-        // Real error (Room Full, Invalid Code, etc.)
+        // Real error (Room Full, Room Not Found, etc.)
         console.error(error);
         setErrorMessage(message || "Invalid Room Code or Room Full");
       }
@@ -71,14 +72,14 @@ const RoomJoinCreate = () => {
 
   return (
     <div style={styles.page}>
-      <RoomHeader
+      {/* <RoomHeader
         roomId="Dashboard"
         user={user}
         onLogout={() => {
           logout(); // Call the auth hook's logout
           navigate("/login");
         }}
-      />
+      /> */}
 
       <div className="join-create-container" style={styles.container}>
         {/* Tabs */}

@@ -1,18 +1,58 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { notifyHostLeft } from "../../socket/roomSocket";
 import { roomApi } from "../../api/room.api";
+import { authUtils } from "../auth/auth.utils";
+import Avatar from "../../components/Avatar"; // Import Avatar
 
-const RoomHeader = ({ roomId, user }) => {
+const RoomHeader = ({ roomId, user: initialUser, isHost }) => {
   const navigate = useNavigate();
+  const [user, setUser] = useState(initialUser || authUtils.getUser());
+
+  // Effect: Sync with Prop if Parent Updates
+  useEffect(() => {
+    if (initialUser) {
+      setUser(initialUser);
+    }
+  }, [initialUser]);
+
+  // Effect: Listen for user updates (e.g. avatar change)
+  useEffect(() => {
+    const handleUserUpdate = () => {
+      console.log("RoomHeader: User updated event received");
+      setUser(authUtils.getUser());
+    };
+
+    window.addEventListener("user-updated", handleUserUpdate);
+    return () => window.removeEventListener("user-updated", handleUserUpdate);
+  }, []);
 
   const handleLeave = async () => {
     try {
-      // Optional: Notify backend you are leaving
-      const user = JSON.parse(localStorage.getItem("user"));
-      if (user) {
-        // 🟢 Logic preserved: roomId here is the roomCode string
-        await roomApi.leaveRoom(roomId);
+      if (roomId === "Lobby") {
+        // Logout Logic handled by parent or just redirect
+        navigate("/login");
+        return;
       }
+
+      // Host Leave Logic
+      if (isHost) {
+        const confirmLeave = window.confirm(
+          "You are the Host. Leaving will close the room for everyone. Are you sure?"
+        );
+        if (!confirmLeave) return;
+
+        // 1. Notify everyone
+        console.log("📢 Host Leaving: Sending notification...");
+        notifyHostLeft(roomId);
+
+        // 2. Delay to ensure message propagates before room deletion
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      // Standard Leave (Host or Participant)
+      await roomApi.leaveRoom(roomId);
+
     } catch (error) {
       console.error("Error leaving room:", error);
     } finally {
@@ -22,14 +62,14 @@ const RoomHeader = ({ roomId, user }) => {
 
   const copyCode = () => {
     navigator.clipboard.writeText(roomId);
-    // 🟢 Using a simple alert for now as per your logic
+    // Using a simple alert for now as per your logic
     alert("Room Code copied to clipboard!");
   };
 
   return (
     <div className="room-header" style={styles.header}>
       <div className="room-info" style={styles.infoSection}>
-        {/* 🟢 Brand Links to Lobby */}
+        {/* Brand Links to Lobby */}
         <Link to="/rooms" style={{ textDecoration: "none" }}>
           <span style={styles.logo}>
             Watch<span style={{ color: "#6366f1" }}>Den</span>
@@ -38,9 +78,12 @@ const RoomHeader = ({ roomId, user }) => {
 
         <div style={styles.divider}></div>
 
-        {/* 🟢 Profile Navigation Link */}
+        {/* Profile Navigation Link with Avatar */}
         <Link to="/profile" style={styles.profileLink}>
-          👤 {user?.username || "Profile"}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Avatar src={user?.avatarUrl} name={user?.username} size="sm" />
+            <span>{user?.displayName || user?.username || "Profile"}</span>
+          </div>
         </Link>
 
         {roomId !== "Lobby" && roomId !== "Dashboard" && (

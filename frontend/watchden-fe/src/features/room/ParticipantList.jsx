@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import "./room.css"; // Ensure it uses the styling
+import Avatar from "../../components/Avatar"; // Import
 
-const ParticipantList = ({ participants = [] }) => {
+const ParticipantList = ({ participants = [], profileMap = {} }) => {
   // 1. State to toggle visibility (Default: false = Collapsed)
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true); // Default open for better visibility
 
   return (
     <div className="participant-list-container">
@@ -28,15 +29,33 @@ const ParticipantList = ({ participants = [] }) => {
           {participants.length === 0 ? (
             <div className="empty-state">No one else is here... yet.</div>
           ) : (
-            participants.map((user, index) => (
-              <div key={index} className="participant-item">
-                <span className="status-dot"></span>
-                <span className="participant-name">
-                  {/* Handle both string names or object names */}
-                  {typeof user === "string" ? user : user.username || "Unknown"}
-                </span>
-              </div>
-            ))
+            participants.map((userId, index) => {
+              // Ensure userId is a number for lookup
+              const id = Number(userId);
+              const profile = profileMap[id];
+              const displayName = profile?.displayName || profile?.username || "Unknown User";
+
+              // Avatar component handles the fallback logic internally
+              return (
+                <div key={index} className="participant-item">
+                  <Avatar
+                    src={profile?.avatarUrl}
+                    name={displayName}
+                    size="sm"
+                    className="participant-avatar-sm"
+                  />
+                  <div className="participant-info">
+                    <span className="participant-name">
+                      {displayName}
+                    </span>
+                    {profile?.username && (
+                      <span className="participant-username">@{profile.username}</span>
+                    )}
+                  </div>
+                  <span className="status-dot-online"></span>
+                </div>
+              );
+            })
           )}
         </div>
       )}
