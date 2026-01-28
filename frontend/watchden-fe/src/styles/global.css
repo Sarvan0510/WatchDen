@@ -1,0 +1,77 @@
+:root {
+  --primary-color: #6366f1; /* Indigo */
+  --primary-hover: #4f46e5;
+  --bg-dark: #1a1a1a;
+  --bg-card: #252525;
+  --text-main: #ffffff;
+  --text-muted: #a1a1aa;
+  --danger: #ef4444;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+    Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  line-height: 1.6;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Button Styles */
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: background 0.2s;
+  font-size: 0.9rem;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 10px 20px;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+}
+
+.btn-secondary {
+  background-color: #3f3f46;
+  color: white;
+  padding: 10px 20px;
+}
+
+.btn-secondary:hover {
+  background-color: #52525b;
+}
+
+/* Form Styles */
+input[type="text"],
+input[type="password"],
+input[type="email"] {
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #3f3f46;
+  background-color: #27272a;
+  color: white;
+  margin-bottom: 10px;
+}
+
+input:focus {
+  outline: 2px solid var(--primary-color);
+  border-color: transparent;
+}
