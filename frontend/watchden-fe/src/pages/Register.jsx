@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../features/auth/useAuth";
+import Loader from "../components/Loader";
 
 const Register = () => {
   const [userData, setUserData] = useState({
@@ -8,6 +9,8 @@ const Register = () => {
     email: "",
     password: "",
   });
+
+  const [showPassword, setShowPassword] = useState(false);
   const { register, loading, error } = useAuth();
   const navigate = useNavigate();
 
@@ -19,60 +22,207 @@ const Register = () => {
     e.preventDefault();
     const success = await register(userData);
     if (success) {
-      alert("Registration successful! Please login.");
       navigate("/login");
     }
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <h2>Create Account</h2>
+    <div className="auth-page" style={styles.page}>
+      <div className="auth-card" style={styles.card}>
+        <div style={styles.header}>
+          <h1 style={styles.logo}>
+            Watch<span style={{ color: "#6366f1" }}>Den</span>
+          </h1>
+          <p style={styles.subtitle}>
+            Create your account to start watching together.
+          </p>
+        </div>
+
         {error && (
-          <div className="error-message" style={{ color: "red" }}>
-            {error}
+          <div className="error-message" style={styles.error}>
+            <span style={{ marginRight: "8px" }}>⚠️</span> {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Username</label>
+        <form onSubmit={handleSubmit} style={styles.form}>
+          <div className="form-group" style={styles.group}>
+            <label style={styles.label}>Username</label>
             <input
               name="username"
               type="text"
+              placeholder="Pick a unique username"
               onChange={handleChange}
+              style={styles.input}
               required
             />
           </div>
-          <div className="form-group">
-            <label>Email</label>
-            <input name="email" type="email" onChange={handleChange} required />
-          </div>
-          <div className="form-group">
-            <label>Password</label>
+
+          <div className="form-group" style={styles.group}>
+            <label style={styles.label}>Email Address</label>
             <input
-              name="password"
-              type="password"
+              name="email"
+              type="email"
+              placeholder="name@example.com"
               onChange={handleChange}
+              style={styles.input}
               required
             />
+          </div>
+
+          <div className="form-group" style={styles.group}>
+            <label style={styles.label}>Password</label>
+            <div style={styles.passwordWrapper}>
+              <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Create a strong password"
+                onChange={handleChange}
+                style={styles.inputPassword}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={styles.toggleBtn}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            style={{ marginTop: "1rem" }}
+            style={
+              loading
+                ? { ...styles.button, ...styles.buttonDisabled }
+                : styles.button
+            }
           >
-            {loading ? "Signing Up..." : "Register"}
+            {loading ? <Loader /> : "Create Account"}
           </button>
         </form>
 
-        <p style={{ marginTop: "10px" }}>
-          Already have an account? <Link to="/login">Login</Link>
+        <p style={styles.footerText}>
+          Already have an account?{" "}
+          <Link to="/login" style={styles.link}>
+            Sign In
+          </Link>
         </p>
       </div>
     </div>
   );
+};
+
+// --- Styles (Matching Login Page) ---
+const styles = {
+  page: {
+    height: "100vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#0f172a",
+    backgroundImage:
+      "radial-gradient(circle at 50% 50%, #1e1b4b 0%, #0f172a 100%)",
+    padding: "20px",
+  },
+  card: {
+    width: "100%",
+    maxWidth: "420px",
+    backgroundColor: "#1e293b",
+    padding: "40px",
+    borderRadius: "16px",
+    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)",
+    border: "1px solid #334155",
+    textAlign: "center",
+  },
+  header: { marginBottom: "32px" },
+  logo: {
+    fontSize: "2rem",
+    fontWeight: "bold",
+    color: "white",
+    margin: "0 0 8px 0",
+    letterSpacing: "-1px",
+  },
+  subtitle: { color: "#94a3b8", fontSize: "0.9rem", margin: 0 },
+  error: {
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    color: "#ef4444",
+    padding: "12px",
+    borderRadius: "8px",
+    marginBottom: "20px",
+    fontSize: "0.85rem",
+    border: "1px solid rgba(239, 68, 68, 0.2)",
+    textAlign: "left",
+  },
+  form: { textAlign: "left" },
+  group: { marginBottom: "20px" },
+  label: {
+    display: "block",
+    color: "#e2e8f0",
+    fontSize: "0.85rem",
+    fontWeight: "500",
+    marginBottom: "8px",
+  },
+  passwordWrapper: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+  },
+  input: {
+    width: "100%",
+    padding: "12px 16px",
+    backgroundColor: "#0f172a",
+    border: "1px solid #334155",
+    borderRadius: "8px",
+    color: "white",
+    fontSize: "1rem",
+    outline: "none",
+    boxSizing: "border-box",
+  },
+  inputPassword: {
+    width: "100%",
+    padding: "12px 60px 12px 16px",
+    backgroundColor: "#0f172a",
+    border: "1px solid #334155",
+    borderRadius: "8px",
+    color: "white",
+    fontSize: "1rem",
+    outline: "none",
+    boxSizing: "border-box",
+  },
+  toggleBtn: {
+    position: "absolute",
+    right: "12px",
+    background: "none",
+    border: "none",
+    color: "#6366f1",
+    cursor: "pointer",
+    fontSize: "0.8rem",
+    fontWeight: "600",
+  },
+  button: {
+    width: "100%",
+    padding: "12px",
+    backgroundColor: "#6366f1",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    fontSize: "1rem",
+    fontWeight: "600",
+    cursor: "pointer",
+    marginTop: "10px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  buttonDisabled: {
+    backgroundColor: "#4338ca",
+    opacity: 0.7,
+    cursor: "not-allowed",
+  },
+  footerText: { marginTop: "24px", color: "#94a3b8", fontSize: "0.9rem" },
+  link: { color: "#818cf8", textDecoration: "none", fontWeight: "500" },
 };
 
 export default Register;

@@ -14,14 +14,16 @@ public class RedisPublisher {
     }
 
     public void publish(ChatMessage message) {
-        // 1. SAVE history to Redis List (Key: "chat:history:room-1")
-        String historyKey = "chat:history:" + message.getRoomId();
-        redisTemplate.opsForList().rightPush(historyKey, message);
-        
-        // Optional: Trim history to last 50 messages to save memory
-        redisTemplate.opsForList().trim(historyKey, 0, 50);
+        // 🔴 FIX: Only save to history if it's a real CHAT message
+        if (ChatMessage.Type.CHAT.equals(message.getType())) {
+            String historyKey = "chat:history:" + message.getRoomId();
+            redisTemplate.opsForList().rightPush(historyKey, message);
+            
+            // Optional: Keep history size manageable (e.g., last 50 messages)
+            redisTemplate.opsForList().trim(historyKey, 0, 50);
+        }
 
-        // 2. Publish as before
+        // 2. Publish EVERYTHING (Join, Leave, Chat) to the topic so real-time works
         String channel = "chat.room." + message.getRoomId();
         redisTemplate.convertAndSend(channel, message);
     }

@@ -8,9 +8,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-
+import com.watchden.auth.client.UserClient;
 import com.watchden.auth.dto.JWTResponseDTO;
 import com.watchden.auth.dto.LoginDTO;
 import com.watchden.auth.dto.RegisterResponseDTO;
@@ -27,17 +28,20 @@ public class AuthServiceImplementation implements AuthService {
 	private final UserRepository userRepository; 				// Repository for user-related database operations
 	private final PasswordEncoder encoder; 						// Encoder for password hashing
 	private final JWTutils jwtUtils; 							// Utility for generating JWT tokens
+	private final UserClient userClient;                         // Client for interacting with User Service
 
 	// Constructor Injection
 	public AuthServiceImplementation(AuthenticationManager authenticationManager,
 		UserRepository userRepository,
 		PasswordEncoder encoder,
-		JWTutils jwtUtils) {
+		JWTutils jwtUtils,
+		UserClient userClient) {
 		
 		this.authenticationManager = authenticationManager;
 		this.userRepository = userRepository;
 		this.encoder = encoder;
 		this.jwtUtils = jwtUtils;
+		this.userClient = userClient;
 	}
 	
 	// ---------------- LOGIN ----------------
@@ -81,6 +85,7 @@ public class AuthServiceImplementation implements AuthService {
 
 	// ---------------- REGISTER ----------------
 	@Override
+	@Transactional
 	public ResponseEntity<?> register(UsersDTO dto) {
 
 		// Check if username is already taken
@@ -105,7 +110,10 @@ public class AuthServiceImplementation implements AuthService {
 	
 		//Save the user
 		try { 
-			userRepository.save(user);
+			Users savedUser = userRepository.save(user);
+			
+			// This ensures User ID 2 in Auth DB has a Profile in User DB
+            userClient.createUserProfile(savedUser.getId(), savedUser.getUsername());
 		} 
 		catch (Exception e) {
 			return ResponseEntity

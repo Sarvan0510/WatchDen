@@ -4,28 +4,30 @@ import Stomp from "stompjs";
 let stompClient = null;
 
 export const connectSocket = (roomId, onMessageReceived, onUserJoined) => {
-  // Pointing to the Gateway (8080). Ensure your Gateway forwards /ws requests to Chat Service!
-  // If Gateway fails for WS, fallback to direct Chat Service: 'http://localhost:8083/ws'
-  const socket = new SockJS("http://localhost:8080/ws");
-  stompClient = Stomp.over(socket);
+  if (stompClient && stompClient.connected) {
+    stompClient.disconnect();
+  }
 
-  stompClient.debug = null; // Disable debug logs in console
+  const socket = new SockJS("http://localhost:8083/ws");
+  stompClient = Stomp.over(socket);
+  stompClient.debug = () => {};
 
   stompClient.connect(
     {},
     () => {
-      // 1. Subscribe to Public Chat Messages
+      console.log("✅ WebSocket Connected!");
+
+      // 1. Subscribe to Messages
       stompClient.subscribe(`/topic/room/${roomId}`, (payload) => {
-        const message = JSON.parse(payload.body);
-        onMessageReceived(message);
+        onMessageReceived(JSON.parse(payload.body));
       });
 
-      // 2. Subscribe to Participant Updates (Joins/Leaves)
+      // 2. Subscribe to Participants
       stompClient.subscribe(`/topic/room/${roomId}/participants`, (payload) => {
         onUserJoined(JSON.parse(payload.body));
       });
 
-      // 3. Notify others that I have joined
+      // 3. Send JOIN Signal
       const user = JSON.parse(localStorage.getItem("user"));
       if (user) {
         stompClient.send(
@@ -38,9 +40,7 @@ export const connectSocket = (roomId, onMessageReceived, onUserJoined) => {
         );
       }
     },
-    (error) => {
-      console.error("Socket error:", error);
-    }
+    (error) => console.log("Socket error:", error)
   );
 };
 
@@ -52,6 +52,7 @@ export const sendMessage = (roomId, messageContent) => {
       content: messageContent,
       type: "CHAT",
     };
+
     stompClient.send(
       `/app/chat/${roomId}/sendMessage`,
       {},
@@ -62,11 +63,16 @@ export const sendMessage = (roomId, messageContent) => {
 
 export const disconnectSocket = () => {
   if (stompClient) {
-    // 🔴 Only try to disconnect if we are actually connected
+    // ONLY disconnect if it's actually in a connected state
+    // STOMP internal state 0: CONNECTING, 1: CONNECTED
     if (stompClient.connected) {
-      stompClient.disconnect(() => {
-        console.log("Disconnected");
-      });
+      try {
+        stompClient.disconnect(() => {
+          console.log("Socket Disconnected");
+        });
+      } catch (e) {
+        // Ignore "already closed" errors
+      }
     }
     stompClient = null;
   }
