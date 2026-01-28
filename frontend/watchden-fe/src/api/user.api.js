@@ -8,14 +8,24 @@ export const userApi = {
   },
 
   updateProfile: async (data) => {
-    // PUT /api/users/me (Gateway adds X-USER-ID)
-    const response = await api.put("/users/me", data);
+    // 🟢 Retrieve and parse the user object first
+    const userString = localStorage.getItem("user");
+    const currentUser = userString ? JSON.parse(userString) : null;
+
+    if (!currentUser || !currentUser.id) {
+      throw new Error("User session not found. Please log in again.");
+    }
+
+    const response = await api.put("/users/me", data, {
+      headers: {
+        "X-User-Id": currentUser.id, // 🟢 Use the parsed variable name correctly
+      },
+    });
     return response.data;
   },
 
-  // Matches @PostMapping("/batch")
-  getBatchUsers: async (userIdList) => {
-    const response = await api.post("/users/batch", userIdList);
+  getUsersBatch: async (userIds) => {
+    const response = await api.post("/users/batch", userIds);
     return response.data;
   },
 

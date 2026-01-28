@@ -1,5 +1,7 @@
 package com.watchden.chat.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class ChatMessage {
 
     public enum Type {
@@ -9,12 +11,19 @@ public class ChatMessage {
     }
 
     private Type type;
+    
+    // Allows frontend to send "room" or "roomId"
+    @JsonProperty("roomId") 
     private String roomId;
+
+    // Map 'sender' (Frontend) to 'senderId' (Backend)
+    @JsonProperty("sender") 
     private String senderId;
+
     private String content;
     private long timestamp;
 
-    // getters & setters
+    // --- Getters and Setters ---
 
     public Type getType() {
         return type;

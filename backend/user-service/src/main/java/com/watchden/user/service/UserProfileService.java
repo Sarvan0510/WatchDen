@@ -41,19 +41,21 @@ public class UserProfileService {
     
     @Transactional
     public UserProfileResponse updateProfile(Long userId, UserProfileUpdateRequest request) {
+        // 1. Fetch existing
         UserProfile profile = userProfileRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("User profile not found"));
+                .orElseThrow(() -> new RuntimeException("User profile not found for ID: " + userId));
 
-        // Only update if the field is sent (not null)
-        if (request.getDisplayName() != null && !request.getDisplayName().isEmpty()) {
+        // 2. Update only provided fields
+        if (request.getDisplayName() != null && !request.getDisplayName().isBlank()) {
             profile.setDisplayName(request.getDisplayName());
         }
 
-        if (request.getAvatarUrl() != null && !request.getAvatarUrl().isEmpty()) {
+        if (request.getAvatarUrl() != null && !request.getAvatarUrl().isBlank()) {
             profile.setAvatarUrl(request.getAvatarUrl());
         }
 
         UserProfile savedProfile = userProfileRepository.save(profile);
+        
         return mapToResponse(savedProfile);
     }
     
@@ -72,7 +74,7 @@ public class UserProfileService {
     }
     
     @Transactional
-    public UserProfileResponse createInitialProfile(Long userId, String userName) {
+    public UserProfileResponse createInitialProfile(Long userId, String username) {
 
         if (userProfileRepository.findByUserId(userId).isPresent()) {
              throw new RuntimeException("Profile already exists for user " + userId);
@@ -80,15 +82,25 @@ public class UserProfileService {
 
         UserProfile newProfile = new UserProfile();
         newProfile.setUserId(userId);
-        newProfile.setUserName(userName);
-        newProfile.setDisplayName(userName);
+        newProfile.setUsername(username);
+        newProfile.setDisplayName(username);
         
         return mapToResponse(userProfileRepository.save(newProfile));
     }
 
 	private UserProfileResponse mapToResponse(UserProfile entity) {
+		
+		if (entity == null) {
+			return null;
+		}
+		
 		UserProfileResponse response = new UserProfileResponse();
-	    BeanUtils.copyProperties(entity, response); 
+
+		response.setUserId(entity.getUserId());
+	    response.setUsername(entity.getUsername()); // This maps entity.getUserName() to DTO.setUserName()
+	    response.setDisplayName(entity.getDisplayName());
+	    response.setAvatarUrl(entity.getAvatarUrl());
+		
 	    return response;
 	}
 	

@@ -17,24 +17,20 @@ const AvatarUpload = ({ currentAvatar, username, onUploadSuccess }) => {
 
     try {
       setUploading(true);
-      // Calls userApi.uploadAvatar -> Gateway -> User Service
       const updatedProfile = await userApi.uploadAvatar(file);
-
       if (onUploadSuccess) {
         onUploadSuccess(updatedProfile.avatarUrl);
       }
     } catch (error) {
       console.error("Upload failed", error);
-      alert("Failed to upload image");
     } finally {
       setUploading(false);
     }
   };
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+    <div style={styles.uploadContainer}>
       <Avatar src={currentAvatar} name={username} size="lg" />
-
       <div className="controls">
         <input
           type="file"
@@ -44,6 +40,7 @@ const AvatarUpload = ({ currentAvatar, username, onUploadSuccess }) => {
           accept="image/*"
         />
         <button
+          style={uploading ? { ...styles.btn, opacity: 0.5 } : styles.btn}
           onClick={() => fileInputRef.current.click()}
           disabled={uploading}
         >
@@ -52,6 +49,25 @@ const AvatarUpload = ({ currentAvatar, username, onUploadSuccess }) => {
       </div>
     </div>
   );
+};
+
+const styles = {
+  uploadContainer: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "1.5rem",
+  },
+  btn: {
+    padding: "8px 16px",
+    backgroundColor: "#6366f1",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    fontWeight: "600",
+    cursor: "pointer",
+    transition: "background 0.2s",
+  },
 };
 
 export default AvatarUpload;

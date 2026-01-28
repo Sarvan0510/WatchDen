@@ -28,9 +28,9 @@ public class UserProfile {
 	private Long userId;
 
 	@Column(name = "username", unique = true, nullable = false)
-	private String userName;
+	private String username;
 
-	@Column(name = "display_name", nullable = false, length = 100)
+	@Column(name = "display_name", nullable = true, length = 100)
 	private String displayName;
 
 	@Column(name = "avatar_url")
@@ -48,12 +48,12 @@ public class UserProfile {
 		super();
 	}
 
-	public UserProfile(long id, Long userId, String userName, String displayName, String avatarUrl,
+	public UserProfile(long id, Long userId, String username, String displayName, String avatarUrl,
 			LocalDateTime createdAt, LocalDateTime updatedAt) {
 		super();
 		this.id = id;
 		this.userId = userId;
-		this.userName = userName;
+		this.username = username;
 		this.displayName = displayName;
 		this.avatarUrl = avatarUrl;
 		this.createdAt = createdAt;
@@ -76,12 +76,12 @@ public class UserProfile {
 		this.userId = userId;
 	}
 
-	public String getUserName() {
-		return userName;
+	public String getUsername() {
+		return username;
 	}
 
-	public void setUserName(String userName) {
-		this.userName = userName;
+	public void setUsername(String username) {
+		this.username = username;
 	}
 
 	public String getDisplayName() {
