@@ -9,7 +9,6 @@ import com.watchden.stream.service.StreamService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
-@CrossOrigin(origins = "http://localhost:3000")
 @RestController
 @RequestMapping("/api/streams")
 public class StreamController {

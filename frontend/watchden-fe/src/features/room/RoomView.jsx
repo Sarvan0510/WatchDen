@@ -97,21 +97,37 @@ const RoomView = () => {
       try {
         const details = await roomApi.getRoomDetails(roomCode);
         if (user && details.hostUserId == user.id) {
-          console.log("👑 User is Host");
+          console.log("User is Host");
           setIsHost(true);
         } else {
-          console.log("Note: User is NOT host. HostID:", details.hostUserId, "UserID:", user.id);
+          console.log(
+            "Note: User is NOT host. HostID:",
+            details.hostUserId,
+            "UserID:",
+            user.id
+          );
         }
       } catch (error) {
         // Retry Loop for 404/500 (Race Condition Handling)
-        if (retryCount < 2 && error.response && (error.response.status === 404 || error.response.status === 500)) {
-          console.warn(`⚠️ Room fetch failed (Attempt ${retryCount + 1}). Retrying in 1s...`);
+        if (
+          retryCount < 2 &&
+          error.response &&
+          (error.response.status === 404 || error.response.status === 500)
+        ) {
+          console.warn(
+            `Room fetch failed (Attempt ${retryCount + 1}). Retrying in 1s...`
+          );
           setTimeout(() => checkHostStatus(retryCount + 1), 1000);
           return;
         }
 
-        if (error.response && (error.response.status === 404 || error.response.status === 500)) {
-          console.warn("Room details fetch failed (Room might be closed/deleted).");
+        if (
+          error.response &&
+          (error.response.status === 404 || error.response.status === 500)
+        ) {
+          console.warn(
+            "Room details fetch failed (Room might be closed/deleted)."
+          );
           // Auto-redirect if room is dead
           alert("This room no longer exists.");
           navigate("/rooms");
@@ -184,14 +200,14 @@ const RoomView = () => {
         <div className="sidebar">
           <div className="sidebar">
             <div className="participants-section">
-              {/* 🟢 Pass profileMap to resolve names in the list */}
+              {/* Pass profileMap to resolve names in the list */}
               <ParticipantList
                 participants={participants}
                 profileMap={profileMap}
               />
             </div>
             <div className="chat-section">
-              {/* 🟢 Pass profileMap to resolve names in chat bubbles */}
+              {/* Pass profileMap to resolve names in chat bubbles */}
               <ChatPanel
                 messages={messages}
                 roomCode={roomCode}
