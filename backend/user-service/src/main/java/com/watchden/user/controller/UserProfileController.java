@@ -15,12 +15,13 @@ import java.util.List;
 public class UserProfileController {
 
     private final UserProfileService userProfileService;
-    
-    public UserProfileController(UserProfileService userProfileService) {
-		this.userProfileService = userProfileService;
-	}
 
-    @GetMapping("/{userId}")
+    public UserProfileController(UserProfileService userProfileService) {
+        this.userProfileService = userProfileService;
+    }
+
+    // Regex ensures this only matches numbers, preventing conflict with /uploads
+    @GetMapping("/{userId:\\d+}")
     public ResponseEntity<UserProfileResponse> getUserProfile(@PathVariable Long userId) {
         return ResponseEntity.ok(userProfileService.getProfileByUserId(userId));
     }
@@ -29,7 +30,7 @@ public class UserProfileController {
     public ResponseEntity<UserProfileResponse> updateMyProfile(
             @RequestHeader("X-User-Id") Long userId,
             @RequestBody UserProfileUpdateRequest request) {
-        
+
         return ResponseEntity.ok(userProfileService.updateProfile(userId, request));
     }
 
@@ -39,7 +40,7 @@ public class UserProfileController {
     public ResponseEntity<List<UserProfileResponse>> getUsersBatch(@RequestBody List<Long> userIds) {
         return ResponseEntity.ok(userProfileService.getBatchProfiles(userIds));
     }
-    
+
     @PostMapping("/upload-avatar")
     public ResponseEntity<UserProfileResponse> uploadAvatar(
             @RequestHeader("X-User-Id") Long userId,
@@ -58,7 +59,35 @@ public class UserProfileController {
     public ResponseEntity<UserProfileResponse> createProfile(
             @RequestParam Long userId,
             @RequestParam String username) {
-        
+
         return ResponseEntity.ok(userProfileService.createInitialProfile(userId, username));
+    }
+
+    // 5. DIRECT FILE SERVE (Fallback if ResourceHandler fails)
+    // URL: GET http://localhost:8084/api/users/uploads/filename.jpg
+    @GetMapping("/uploads/{filename:.+}")
+    public ResponseEntity<org.springframework.core.io.Resource> getAvatar(@PathVariable String filename) {
+        try {
+            String currentDir = System.getProperty("user.dir");
+            java.nio.file.Path backendDir = java.nio.file.Paths.get(currentDir).getParent();
+            java.nio.file.Path filePath = backendDir.resolve("uploads").resolve(filename);
+
+            org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(
+                    filePath.toUri());
+
+            System.out.println("📂 Serving file from: " + filePath.toAbsolutePath()); // Debug
+
+            if (resource.exists() && resource.isReadable()) {
+                return ResponseEntity.ok()
+                        .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "image/jpeg")
+                        .body(resource);
+            } else {
+                System.out.println("❌ File not found or not readable");
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }

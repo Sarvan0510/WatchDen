@@ -31,12 +31,20 @@ export const userApi = {
 
   // Matches @PostMapping("/upload-avatar")
   uploadAvatar: async (file) => {
+    const userString = localStorage.getItem("user");
+    const currentUser = userString ? JSON.parse(userString) : null;
+
+    if (!currentUser || !currentUser.id) {
+      throw new Error("User session not found. Please log in again.");
+    }
+
     const formData = new FormData();
     formData.append("file", file);
 
     const response = await api.post("/users/upload-avatar", formData, {
       headers: {
         "Content-Type": "multipart/form-data", // Critical for file upload
+        "X-User-Id": currentUser.id,
       },
     });
     return response.data;

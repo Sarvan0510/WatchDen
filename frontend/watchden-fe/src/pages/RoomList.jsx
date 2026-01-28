@@ -3,13 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { roomApi } from "../api/room.api";
 import Loader from "../components/Loader";
 import RoomHeader from "../features/room/RoomHeader";
-import { authUtils } from "../features/auth/auth.utils"; // 🟢 Import your Utils
+import { authUtils } from "../features/auth/auth.utils"; // Import your Utils
 
 const RoomList = () => {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🟢 FIX: Initialize State DIRECTLY from authUtils
+  // Initialize State DIRECTLY from authUtils
   // This reads from storage instantly before the page even paints.
   const [user, setUser] = useState(() => authUtils.getUser());
 
@@ -17,26 +17,35 @@ const RoomList = () => {
 
   useEffect(() => {
     // 1. Safety Check (Optional but good)
-    // If for some reason the state is null but storage has data, sync it.
     const storedUser = authUtils.getUser();
     if (storedUser && !user) {
       setUser(storedUser);
     }
 
-    // 2. Fetch Rooms
-    const fetchRooms = async () => {
+    // 2. Fetch Rooms Logic
+    const fetchRooms = async (isPolling = false) => {
       try {
+        if (!isPolling) setLoading(true); // Only show spinner on initial load
         const data = await roomApi.getPublicRooms();
         setRooms(data);
       } catch (error) {
         console.error("Failed to fetch rooms", error);
       } finally {
-        setLoading(false);
+        if (!isPolling) setLoading(false);
       }
     };
 
+    // Initial Fetch
     fetchRooms();
-  }, []); // Run once on mount
+
+    // 3. Polling Interval (Every 3 seconds)
+    const intervalId = setInterval(() => {
+      fetchRooms(true); // Silent update
+    }, 3000);
+
+    // Cleanup
+    return () => clearInterval(intervalId);
+  }, []); // Run once on mount (interval persists)
 
   const handleLogout = () => {
     // Use your hook or utils to logout
@@ -49,8 +58,7 @@ const RoomList = () => {
 
   return (
     <div className="room-list-page" style={styles.page}>
-      {/* Header */}
-      <RoomHeader roomId="Public Lobby" user={user} onLogout={handleLogout} />
+      {/* Header Removed to avoid double navigation and "Leave Room" glitch in Lobby */}
 
       <div className="content-container" style={styles.container}>
         {/* Actions Bar */}
@@ -94,7 +102,7 @@ const RoomList = () => {
                   <div style={styles.infoRow}>
                     <span style={styles.label}>Participants</span>
                     <span style={styles.userText}>
-                      👥 {room.activeUsers || room.count || 0} / {room.maxUsers}
+                      👥 {room.participantCount || 0} / {room.maxUsers}
                     </span>
                   </div>
                 </div>

@@ -22,15 +22,17 @@ public class JwtAuthenticationFilter implements GlobalFilter {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange,
-                             GatewayFilterChain chain) {
+            GatewayFilterChain chain) {
 
-        String authHeader =
-                exchange.getRequest().getHeaders()
-                        .getFirst(HttpHeaders.AUTHORIZATION);
+        String authHeader = exchange.getRequest().getHeaders()
+                .getFirst(HttpHeaders.AUTHORIZATION);
 
         // Allow public endpoints
         String path = exchange.getRequest().getURI().getPath();
-        if (path.contains("/api/auth/") || path.contains("/rooms/public")) {
+
+        if (path.contains("/api/auth/") ||
+                path.contains("/rooms/public") ||
+                path.contains("/api/users/uploads/")) { // Allow avatars
             return chain.filter(exchange);
         }
 
@@ -46,20 +48,17 @@ public class JwtAuthenticationFilter implements GlobalFilter {
             String username = claims.getSubject();
             Long userId = claims.get("userId", Long.class);
 
-            //Inject headers for downstream services
-            ServerWebExchange modifiedExchange =
-                    exchange.mutate()
-                            .request(builder -> builder
-                                    .header("X-USER-ID", String.valueOf(userId))
-                                    .header("X-USERNAME", username)
-                            )
-                            .build();
+            // Inject headers for downstream services
+            ServerWebExchange modifiedExchange = exchange.mutate()
+                    .request(builder -> builder
+                            .header("X-USER-ID", String.valueOf(userId))
+                            .header("X-USERNAME", username))
+                    .build();
 
             return chain.filter(modifiedExchange);
-        } 
-        catch (Exception e) {
-            
-        	exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+        } catch (Exception e) {
+
+            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }
     }
