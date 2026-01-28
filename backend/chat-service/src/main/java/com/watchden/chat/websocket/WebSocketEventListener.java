@@ -16,7 +16,8 @@ public class WebSocketEventListener {
     private final RedisTemplate<String, Object> redisTemplate;
     private final SimpMessagingTemplate messagingTemplate;
 
-    public WebSocketEventListener(RedisTemplate<String, Object> redisTemplate, SimpMessagingTemplate messagingTemplate) {
+    public WebSocketEventListener(RedisTemplate<String, Object> redisTemplate,
+            SimpMessagingTemplate messagingTemplate) {
         this.redisTemplate = redisTemplate;
         this.messagingTemplate = messagingTemplate;
     }
@@ -27,14 +28,15 @@ public class WebSocketEventListener {
 
         // 1. Get the username and roomId we saved during JOIN
         String username = (String) headerAccessor.getSessionAttributes().get("username");
+        Long userId = (Long) headerAccessor.getSessionAttributes().get("userId");
         String roomId = (String) headerAccessor.getSessionAttributes().get("roomId");
 
-        if (username != null && roomId != null) {
+        if (username != null && roomId != null && userId != null) {
             System.out.println("❌ User Disconnected: " + username);
 
-            // 2. Remove from Redis Set
+            // 2. Remove from Redis Set (Remove ID)
             String participantKey = "room:participants:" + roomId;
-            redisTemplate.opsForSet().remove(participantKey, username);
+            redisTemplate.opsForSet().remove(participantKey, String.valueOf(userId));
 
             // 3. Broadcast Updated Participant List
             Set<Object> activeUsers = redisTemplate.opsForSet().members(participantKey);

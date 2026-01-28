@@ -17,18 +17,28 @@ const Avatar = ({ src, name, size = "md" }) => {
     if (!path) return "";
     if (path.startsWith("http")) return path;
 
-    // CRITICAL: Pointing directly to User Service (8084) for static files
-    // because Gateway might not be configured to serve the "uploads" folder yet.
-    return `http://localhost:8084${path}`;
+    // CRITICAL: Pointing to Gateway (8080) which routes to User Service (via /api/users)
+    // The backend now maps /api/users/uploads/** to the physical file.
+    return `http://localhost:8080/api/users${path}`;
   };
 
+  // Reset error state when src changes
+  React.useEffect(() => {
+    setImgError(false);
+  }, [src]);
+
   if (src && !imgError) {
+    const fullUrl = getFullUrl(src);
+    console.log(`🖼️ Avatar [${name}]: Trying to load:`, fullUrl);
     return (
       <img
-        src={getFullUrl(src)}
+        src={fullUrl}
         alt={name}
         className={`avatar avatar-${size}`}
-        onError={() => setImgError(true)}
+        onError={(e) => {
+          console.error("Avatar failed to load:", fullUrl);
+          setImgError(true);
+        }}
       />
     );
   }

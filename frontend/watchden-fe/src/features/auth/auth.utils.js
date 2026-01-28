@@ -16,6 +16,14 @@ export const authUtils = {
     localStorage.setItem(USER_KEY, JSON.stringify(user));
   },
 
+  updateUser: (user) => {
+    console.log("🔄 authUtils: Updating user in storage:", user);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+
+    console.log("📢 authUtils: Dispatching 'user-updated' event");
+    window.dispatchEvent(new Event("user-updated"));
+  },
+
   clearAuth: () => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);

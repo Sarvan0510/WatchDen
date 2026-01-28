@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { userApi } from "../api/user.api";
 import AvatarUpload from "../features/user/AvatarUpload";
-import EditProfileForm from "../features/user/EditProfileForm"; // 🟢 Import the form
+import EditProfileForm from "../features/user/EditProfileForm"; //  Import the form
 import Loader from "../components/Loader";
+import { authUtils } from "../features/auth/auth.utils"; // Add missing import
 
 const ProfilePage = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false); // 🟢 Toggle state
+  const [isEditing, setIsEditing] = useState(false); //  Toggle state
 
   const userString = localStorage.getItem("user");
   const currentUser = userString ? JSON.parse(userString) : null;
@@ -29,9 +30,21 @@ const ProfilePage = () => {
     }
   };
 
+  // ...
+
   const handleUpdateSuccess = (updatedUser) => {
     setProfile(updatedUser);
-    setIsEditing(false); // 🟢 Close form on success
+    setIsEditing(false);
+
+    // SAFELY Merge into LocalStorage User (for changing avtar in header )
+    const currentUser = authUtils.getUser() || {};
+    const safeUserUpdate = {
+      ...currentUser,
+      avatarUrl: updatedUser.avatarUrl,
+      displayName: updatedUser.displayName,
+      username: updatedUser.username
+    };
+    authUtils.updateUser(safeUserUpdate);
   };
 
   if (loading) return <Loader fullScreen />;
@@ -52,7 +65,19 @@ const ProfilePage = () => {
                 currentAvatar={profile?.avatarUrl}
                 username={profile?.username || currentUser.username}
                 onUploadSuccess={(newUrl) => {
-                  setProfile((prev) => ({ ...prev, avatarUrl: newUrl }));
+                  const updatedProfile = { ...profile, avatarUrl: newUrl };
+                  setProfile(updatedProfile);
+
+                  // SAFELY Merge into LocalStorage User
+                  const currentUser = authUtils.getUser() || {};
+                  const safeUserUpdate = {
+                    ...currentUser,
+                    avatarUrl: newUrl,
+                    // Also sync other fields if needed
+                    displayName: updatedProfile.displayName,
+                    username: updatedProfile.username
+                  };
+                  authUtils.updateUser(safeUserUpdate);
                 }}
               />
             </div>
@@ -61,7 +86,7 @@ const ProfilePage = () => {
           <div className="card" style={styles.card}>
             <h3 style={styles.cardTitle}>Profile Details</h3>
 
-            {/* 🟢 Conditional Rendering based on isEditing */}
+            {/*  Conditional Rendering based on isEditing */}
             {!isEditing ? (
               <>
                 <div style={styles.detailGroup}>

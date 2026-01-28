@@ -24,4 +24,10 @@ export const roomApi = {
     const response = await api.post(`/rooms/${roomId}/leave`);
     return response.data;
   },
+
+  getRoomDetails: async (roomCode) => {
+    // GET /api/rooms/{roomCode}
+    const response = await api.get(`/rooms/${roomCode}`);
+    return response.data;
+  },
 };
