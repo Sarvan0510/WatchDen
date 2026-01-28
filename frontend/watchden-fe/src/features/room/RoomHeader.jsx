@@ -50,12 +50,13 @@ const RoomHeader = ({ roomId, user: initialUser, isHost }) => {
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
 
-      // Standard Leave (Host or Participant)
+      // Only navigate if leave was successful or initiated
       await roomApi.leaveRoom(roomId);
 
     } catch (error) {
       console.error("Error leaving room:", error);
-    } finally {
+      
+      // Still navigate if error is non - critical 
       navigate("/rooms");
     }
   };
