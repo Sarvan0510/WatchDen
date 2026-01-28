@@ -1,36 +1,151 @@
 import React from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../features/auth/useAuth";
-import "../styles/global.css";
 
 const Landing = () => {
   const { user } = useAuth();
 
-  // If already logged in, skip landing and go to rooms
   if (user) {
     return <Navigate to="/rooms" replace />;
   }
 
   return (
-    <div
-      className="landing-container"
-      style={{ textAlign: "center", marginTop: "100px" }}
-    >
-      <h1>Welcome to WatchDen</h1>
-      <p>Watch videos together with friends in real-time.</p>
+    <div className="landing-page" style={styles.page}>
+      <div style={styles.content}>
+        {/* Hero Section */}
+        <div style={styles.hero}>
+          <h1 style={styles.logo}>
+            Watch<span style={{ color: "#6366f1" }}>Den</span>
+          </h1>
+          <h2 style={styles.title}>Watch Together, Anywhere.</h2>
+          <p style={styles.description}>
+            The ultimate private theater for you and your friends. Sync videos
+            perfectly, chat in real-time, and never watch alone again.
+          </p>
+        </div>
 
-      <div className="action-buttons" style={{ marginTop: "20px" }}>
-        <Link to="/login">
-          <button className="btn-primary" style={{ marginRight: "10px" }}>
-            Login
-          </button>
-        </Link>
-        <Link to="/register">
-          <button className="btn-secondary">Register</button>
-        </Link>
+        {/* Action Buttons */}
+        <div style={styles.buttonContainer}>
+          <Link to="/login" style={{ textDecoration: "none" }}>
+            <button style={styles.primaryBtn}>Get Started</button>
+          </Link>
+          <Link to="/register" style={{ textDecoration: "none" }}>
+            <button style={styles.secondaryBtn}>Create Account</button>
+          </Link>
+        </div>
+
+        {/* Feature Highlights */}
+        <div style={styles.features}>
+          <div style={styles.featureItem}>
+            <span style={styles.featureIcon}>⚡</span>
+            <p style={styles.featureText}>Real-time Sync</p>
+          </div>
+          <div style={styles.featureItem}>
+            <span style={styles.featureIcon}>💬</span>
+            <p style={styles.featureText}>Live Chat</p>
+          </div>
+          <div style={styles.featureItem}>
+            <span style={styles.featureIcon}>🔒</span>
+            <p style={styles.featureText}>Private Rooms</p>
+          </div>
+        </div>
       </div>
     </div>
   );
+};
+
+// --- Landing Page Styles ---
+const styles = {
+  page: {
+    height: "100vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#0f172a",
+    backgroundImage:
+      "radial-gradient(circle at 50% 50%, #1e1b4b 0%, #0f172a 100%)",
+    color: "white",
+    padding: "20px",
+    fontFamily: "'Inter', system-ui, sans-serif",
+  },
+  content: {
+    maxWidth: "800px",
+    textAlign: "center",
+  },
+  hero: {
+    marginBottom: "40px",
+  },
+  logo: {
+    fontSize: "1.5rem",
+    fontWeight: "800",
+    letterSpacing: "-1px",
+    marginBottom: "20px",
+  },
+  title: {
+    fontSize: "clamp(2.5rem, 8vw, 4rem)",
+    fontWeight: "900",
+    lineHeight: "1.1",
+    marginBottom: "24px",
+    background: "linear-gradient(to bottom right, #ffffff, #94a3b8)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+  },
+  description: {
+    fontSize: "1.1rem",
+    color: "#94a3b8",
+    lineHeight: "1.6",
+    maxWidth: "600px",
+    margin: "0 auto",
+  },
+  buttonContainer: {
+    display: "flex",
+    gap: "16px",
+    justifyContent: "center",
+    marginBottom: "60px",
+  },
+  primaryBtn: {
+    padding: "14px 32px",
+    backgroundColor: "#6366f1",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    fontSize: "1.1rem",
+    fontWeight: "600",
+    cursor: "pointer",
+    transition: "transform 0.2s, background-color 0.2s",
+  },
+  secondaryBtn: {
+    padding: "14px 32px",
+    backgroundColor: "transparent",
+    color: "white",
+    border: "1px solid #334155",
+    borderRadius: "8px",
+    fontSize: "1.1rem",
+    fontWeight: "600",
+    cursor: "pointer",
+    transition: "background-color 0.2s",
+  },
+  features: {
+    display: "flex",
+    justifyContent: "center",
+    gap: "40px",
+    borderTop: "1px solid #1e293b",
+    paddingTop: "40px",
+  },
+  featureItem: {
+    textAlign: "center",
+  },
+  featureIcon: {
+    fontSize: "1.5rem",
+    display: "block",
+    marginBottom: "8px",
+  },
+  featureText: {
+    fontSize: "0.9rem",
+    color: "#e2e8f0",
+    margin: 0,
+    fontWeight: "500",
+  },
 };
 
 export default Landing;

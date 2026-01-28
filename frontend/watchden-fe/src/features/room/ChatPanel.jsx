@@ -1,59 +1,69 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { sendMessage } from "../../socket/roomSocket";
-import Avatar from "../../components/Avatar";
 
 const ChatPanel = ({ messages, roomCode }) => {
-  const [input, setInput] = useState("");
+  const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef(null);
-  const currentUser = JSON.parse(localStorage.getItem("user"));
 
-  // Auto-scroll to bottom when new message arrives
-  useEffect(() => {
+  // 1. Get current user to decide Left vs Right alignment
+  const currentUser = JSON.parse(localStorage.getItem("user"))?.username;
+
+  const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
   }, [messages]);
 
-  const handleSend = (e) => {
-    e.preventDefault();
-    if (input.trim()) {
-      sendMessage(roomCode, input);
-      setInput("");
+  const handleSend = () => {
+    if (newMessage.trim()) {
+      sendMessage(roomCode, newMessage);
+      setNewMessage("");
     }
   };
 
   return (
     <div className="chat-panel">
+      {/* Messages List */}
+      {/* Messages List */}
       <div className="messages-list">
-        {messages.map((msg, index) => {
-          const isMe = msg.sender === currentUser?.username;
-          return (
-            <div
-              key={index}
-              className={`message-bubble ${isMe ? "my-message" : ""}`}
-            >
-              {!isMe && (
-                <div className="message-avatar">
-                  <Avatar name={msg.sender} size="sm" />
-                </div>
-              )}
-              <div className="message-content">
+        {messages
+          // 🔴 FIX: Filter out non-chat messages or empty content
+          .filter(
+            (msg) =>
+              msg.type === "CHAT" && msg.content && msg.content.trim() !== ""
+          )
+          .map((msg, index) => {
+            const currentUser = JSON.parse(
+              localStorage.getItem("user")
+            )?.username;
+            const isMe = msg.sender === currentUser;
+
+            return (
+              <div
+                key={index}
+                className={`message-bubble ${isMe ? "my-message" : ""}`}
+              >
                 {!isMe && <span className="sender-name">{msg.sender}</span>}
-                <p>{msg.content}</p>
+                <div className="message-content">{msg.content}</div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
         <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={handleSend} className="chat-input-area">
+      {/* Input Area */}
+      <div className="chat-input-area">
         <input
           type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
+          value={newMessage}
+          onChange={(e) => setNewMessage(e.target.value)}
+          onKeyPress={(e) => e.key === "Enter" && handleSend()}
           placeholder="Type a message..."
         />
-        <button type="submit">Send</button>
-      </form>
+        <button onClick={handleSend}>Send</button>
+      </div>
     </div>
   );
 };

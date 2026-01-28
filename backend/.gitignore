@@ -1,15 +1,7 @@
 # --- Build & Compiled Code ---
-target/
-bin/
-build/
 
 # --- Eclipse Workspace & Project Files ---
 .metadata/
-.recommenders/
-.settings/
-.classpath
-.project
-.factorypath
 
 # --- System & Logs ---
 .DS_Store

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "../features/auth/useAuth";
 import Loader from "../components/Loader";
 
@@ -9,7 +9,6 @@ const Login = () => {
     password: "",
   });
   const { login, loading, error } = useAuth();
-  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setCredentials({ ...credentials, [e.target.name]: e.target.value });
@@ -19,36 +18,50 @@ const Login = () => {
     e.preventDefault();
     const success = await login(credentials);
     if (success) {
-      navigate("/rooms"); // Redirect to Room List on success
+      // Use hard redirect to ensure sync as we discussed earlier
+      window.location.href = "/rooms";
     }
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <h2>Login</h2>
+    <div className="auth-page" style={styles.page}>
+      <div className="auth-card" style={styles.card}>
+        <div style={styles.header}>
+          <h1 style={styles.logo}>
+            Watch<span style={{ color: "#6366f1" }}>Den</span>
+          </h1>
+          <p style={styles.subtitle}>
+            Welcome back! Please login to your account.
+          </p>
+        </div>
+
         {error && (
-          <div className="error-message" style={{ color: "red" }}>
-            {error}
+          <div className="error-message" style={styles.error}>
+            <span style={{ marginRight: "8px" }}>⚠️</span> {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Username</label>
+        <form onSubmit={handleSubmit} style={styles.form}>
+          <div className="form-group" style={styles.group}>
+            <label style={styles.label}>Username</label>
             <input
               name="username"
               type="text"
+              placeholder="Enter your username"
               onChange={handleChange}
+              style={styles.input}
               required
             />
           </div>
-          <div className="form-group">
-            <label>Password</label>
+
+          <div className="form-group" style={styles.group}>
+            <label style={styles.label}>Password</label>
             <input
               name="password"
               type="password"
+              placeholder="••••••••"
               onChange={handleChange}
+              style={styles.input}
               required
             />
           </div>
@@ -56,18 +69,130 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading}
-            style={{ marginTop: "1rem" }}
+            style={
+              loading
+                ? { ...styles.button, ...styles.buttonDisabled }
+                : styles.button
+            }
           >
-            {loading ? <Loader /> : "Login"}
+            {loading ? <Loader /> : "Sign In"}
           </button>
         </form>
 
-        <p style={{ marginTop: "10px" }}>
-          Don't have an account? <Link to="/register">Register</Link>
+        <p style={styles.footerText}>
+          Don't have an account?{" "}
+          <Link to="/register" style={styles.link}>
+            Register
+          </Link>
         </p>
       </div>
     </div>
   );
+};
+
+// --- Modern Dark Theme Styles ---
+const styles = {
+  page: {
+    height: "100vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#0f172a", // Deep navy/black
+    backgroundImage:
+      "radial-gradient(circle at 50% 50%, #1e1b4b 0%, #0f172a 100%)",
+    padding: "20px",
+  },
+  card: {
+    width: "100%",
+    maxWidth: "400px",
+    backgroundColor: "#1e293b", // Slate blue/grey
+    padding: "40px",
+    borderRadius: "16px",
+    boxShadow:
+      "0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4)",
+    border: "1px solid #334155",
+    textAlign: "center",
+  },
+  header: {
+    marginBottom: "32px",
+  },
+  logo: {
+    fontSize: "2rem",
+    fontWeight: "bold",
+    color: "white",
+    margin: "0 0 8px 0",
+    letterSpacing: "-1px",
+  },
+  subtitle: {
+    color: "#94a3b8",
+    fontSize: "0.9rem",
+    margin: 0,
+  },
+  error: {
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    color: "#ef4444",
+    padding: "12px",
+    borderRadius: "8px",
+    marginBottom: "20px",
+    fontSize: "0.85rem",
+    border: "1px solid rgba(239, 68, 68, 0.2)",
+  },
+  form: {
+    textAlign: "left",
+  },
+  group: {
+    marginBottom: "20px",
+  },
+  label: {
+    display: "block",
+    color: "#e2e8f0",
+    fontSize: "0.85rem",
+    fontWeight: "500",
+    marginBottom: "8px",
+  },
+  input: {
+    width: "100%",
+    padding: "12px 16px",
+    backgroundColor: "#0f172a",
+    border: "1px solid #334155",
+    borderRadius: "8px",
+    color: "white",
+    fontSize: "1rem",
+    outline: "none",
+    transition: "border-color 0.2s",
+    boxSizing: "border-box",
+  },
+  button: {
+    width: "100%",
+    padding: "12px",
+    backgroundColor: "#6366f1",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    fontSize: "1rem",
+    fontWeight: "600",
+    cursor: "pointer",
+    marginTop: "10px",
+    transition: "background-color 0.2s, transform 0.1s",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  buttonDisabled: {
+    backgroundColor: "#4338ca",
+    opacity: 0.7,
+    cursor: "not-allowed",
+  },
+  footerText: {
+    marginTop: "24px",
+    color: "#94a3b8",
+    fontSize: "0.9rem",
+  },
+  link: {
+    color: "#818cf8",
+    textDecoration: "none",
+    fontWeight: "500",
+  },
 };
 
 export default Login;

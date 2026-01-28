@@ -1,9 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { authApi } from "../../api/auth.api";
-import { authUtils } from "./auth.utils";
+import { authUtils } from "./auth.utils"; // 🟢 Import your utils
 
 export const useAuth = () => {
+  // 🟢 1. FIX: Initialize state from LocalStorage immediately
+  // This prevents the "Login" button from flashing on refresh
   const [user, setUser] = useState(authUtils.getUser());
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -11,21 +14,27 @@ export const useAuth = () => {
     setLoading(true);
     setError(null);
     try {
-      // Backend returns { token: "...", type: "Bearer", id: 1, username: "...", roles: [...] }
+      // API Call
       const data = await authApi.login(credentials);
 
-      // We normalize the user object
+      // Normalize User Data
       const userData = {
         id: data.id,
-        username: data.username,
+        username: data.username, // Ensure backend sends 'username'
         email: data.email,
         roles: data.roles,
       };
 
+      // 🟢 2. FIX: Save to Storage SYNCHRONOUSLY
+      // This runs before the function returns, so the data is 100% ready
+      // when your Login page calls navigate("/rooms")
       authUtils.setAuth(data.token, userData);
+
+      // Update React State
       setUser(userData);
-      return true; // Success
+      return true;
     } catch (err) {
+      console.error("Login Error:", err);
       setError(err.response?.data?.message || "Login failed");
       return false;
     } finally {
@@ -38,10 +47,10 @@ export const useAuth = () => {
     setError(null);
     try {
       await authApi.register(userData);
-      // Auto-login after register? Or redirect to login?
-      // For now, return success and let UI decide.
+      // Optional: You could auto-login here if the backend returns a token
       return true;
     } catch (err) {
+      console.error("Register Error:", err);
       setError(err.response?.data?.message || "Registration failed");
       return false;
     } finally {
@@ -50,8 +59,11 @@ export const useAuth = () => {
   };
 
   const logout = () => {
+    // 🟢 3. FIX: Clear storage immediately
     authUtils.clearAuth();
     setUser(null);
+
+    // Force a hard refresh to clear any lingering memory states
     window.location.href = "/login";
   };
 

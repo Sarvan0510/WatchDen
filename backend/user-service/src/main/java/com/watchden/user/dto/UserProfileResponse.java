@@ -3,7 +3,7 @@ package com.watchden.user.dto;
 public class UserProfileResponse {
 
 	private Long userId;
-	private String userName;
+	private String username;
 	private String displayName;
 	private String avatarUrl;
 	
@@ -11,10 +11,10 @@ public class UserProfileResponse {
 		super();
 	}
 	
-	public UserProfileResponse(Long userId, String userName, String displayName, String avatarUrl) {
+	public UserProfileResponse(Long userId, String username, String displayName, String avatarUrl) {
 		super();
 		this.userId = userId;
-		this.userName = userName;
+		this.username = username;
 		this.displayName = displayName;
 		this.avatarUrl = avatarUrl;
 	}
@@ -27,12 +27,12 @@ public class UserProfileResponse {
 		this.userId = userId;
 	}
 
-	public String getUserName() {
-		return userName;
+	public String getUsername() {
+		return username;
 	}
 
-	public void setUserName(String userName) {
-		this.userName = userName;
+	public void setUsername(String username) {
+		this.username = username;
 	}
 
 	public String getDisplayName() {
