@@ -28,7 +28,7 @@ export const connectSocket = (roomId, onMessageReceived, onUserJoined) => {
       });
 
       // 3. Send JOIN Signal
-      const user = JSON.parse(localStorage.getItem("user"));
+      const user = JSON.parse(sessionStorage.getItem("user"));
       if (user) {
         stompClient.send(
           `/app/chat/${roomId}/join`,
@@ -47,7 +47,7 @@ export const connectSocket = (roomId, onMessageReceived, onUserJoined) => {
 
 export const sendMessage = (roomId, messageContent) => {
   if (stompClient && stompClient.connected) {
-    const user = JSON.parse(localStorage.getItem("user"));
+    const user = JSON.parse(sessionStorage.getItem("user"));
     const chatMessage = {
       sender: user.username,
       content: messageContent,
@@ -64,7 +64,7 @@ export const sendMessage = (roomId, messageContent) => {
 
 export const notifyHostLeft = (roomId) => {
   if (stompClient && stompClient.connected) {
-    const user = JSON.parse(localStorage.getItem("user"));
+    const user = JSON.parse(sessionStorage.getItem("user"));
     const message = {
       sender: user.username,
       type: "HOST_LEFT",
