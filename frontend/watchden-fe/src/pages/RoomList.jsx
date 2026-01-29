@@ -69,7 +69,7 @@ const RoomList = () => {
           </div>
           <Link to="/rooms/create" style={{ textDecoration: "none" }}>
             <button className="btn-primary" style={styles.createBtn}>
-              + Create New Room
+              Create or Join Room
             </button>
           </Link>
         </div>
