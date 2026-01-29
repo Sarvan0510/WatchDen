@@ -40,7 +40,7 @@ export const useWebRTC = (roomId, user) => {
 
       // Incoming Stream
       pc.ontrack = (e) => {
-        console.log("🎥 Received Remote Stream from:", targetUserId); // Debug Log
+        console.log("🎥 Received Remote Stream from:", targetUserId);
         setRemoteStreams((prev) => {
           const newMap = new Map(prev);
           newMap.set(targetUserId, e.streams[0]);
@@ -69,16 +69,6 @@ export const useWebRTC = (roomId, user) => {
     [roomId]
   );
 
-  // Signal Handler
-  // src/hooks/useWebRTC.js
-
-  // ... imports and setup ...
-
-  // Signal Handler
-  // src/hooks/useWebRTC.js
-
-  // src/hooks/useWebRTC.js
-
   const handleIncomingSignal = async (signal, localStream) => {
     let { type, sender, payload } = signal;
     if (sender === user.username) return;
@@ -95,7 +85,6 @@ export const useWebRTC = (roomId, user) => {
 
     // 🟢 FIX 1: TARGET CHECK (The "3rd User" Fix)
     // If the signal has a specific 'target' and it is NOT me, ignore it.
-    // This stops User 2 from trying to process User 3's handshake.
     if (payload.target && payload.target !== user.username) {
       return;
     }
@@ -104,19 +93,12 @@ export const useWebRTC = (roomId, user) => {
 
     try {
       if (type === "offer") {
-        // Strict Guard: If connection is already stable, ignore duplicates
-        if (pc && pc.signalingState === "stable") {
-          console.log(
-            "🛡️ BLOCKED Duplicate Offer: Connection is already stable."
-          );
-          return;
-        }
 
-        // Reset failed connections
-        if (
-          pc &&
-          (pc.connectionState === "failed" || pc.connectionState === "closed")
-        ) {
+        // 🟢 FIX 3: PERMISSIVE RENEGOTIATION (Allow "Duplicate" Offers)
+        if (pc) {
+          console.log("♻️ Renegotiation: Resetting PC for", sender);
+          // 🟢 CRITICAL: Stop "Closed" event from nuking the stream map
+          pc.onconnectionstatechange = null;
           pc.close();
           peersRef.current.delete(sender);
           pc = null;
@@ -132,6 +114,7 @@ export const useWebRTC = (roomId, user) => {
 
         // Respond specifically to the sender
         sendSignal(roomId, "answer", { sdp: answer, target: sender });
+
       } else if (type === "answer" && pc) {
         if (pc.signalingState === "have-local-offer") {
           await pc.setRemoteDescription(
@@ -146,6 +129,8 @@ export const useWebRTC = (roomId, user) => {
         // 🟢 FIX 2: REFRESH LOGIC (The "Zombie Connection" Fix)
         // If we receive "join", it means the user disconnected/refreshed.
         // We MUST close the old connection and start a new one.
+
+        // Even if we are the sender, if someone joins, we offer.
         if (localStream) {
           if (pc) {
             console.log(`♻️ User ${sender} rejoined. Resetting connection...`);
@@ -170,6 +155,7 @@ export const useWebRTC = (roomId, user) => {
       }
     }
   };
+
   // Switch Video Track (For Screen Share / MP4)
   const replaceVideoTrack = (newStream) => {
     const newVideoTrack = newStream.getVideoTracks()[0];
@@ -183,5 +169,25 @@ export const useWebRTC = (roomId, user) => {
     });
   };
 
-  return { remoteStreams, handleIncomingSignal, replaceVideoTrack };
+  // 🟢 Manual Connection Trigger (Host calls this when starting stream)
+  const connectToPeer = async (targetUserId, stream) => {
+    console.log(`🔌 Manual Connection initiated to: ${targetUserId}`);
+    if (!stream) {
+      console.error("❌ Cannot connect to peer: No stream provided");
+      return;
+    }
+
+    if (peersRef.current.has(targetUserId)) {
+      peersRef.current.get(targetUserId).close();
+      peersRef.current.delete(targetUserId);
+    }
+
+    // Use the passed stream, NOT localStreamRef (which is undefined here)
+    const pc = createPeerConnection(targetUserId, stream, true);
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    sendSignal(roomId, "offer", { sdp: offer, target: targetUserId });
+  };
+
+  return { remoteStreams, handleIncomingSignal, replaceVideoTrack, connectToPeer };
 };
