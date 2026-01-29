@@ -4,9 +4,9 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
-@FeignClient(name = "room-service")
+@FeignClient(name = "room-service", path = "/api/rooms")
 public interface RoomServiceClient {
-
-    @GetMapping("/rooms/{roomId}/host")
-    Long getHostUserId(@PathVariable Long roomId);
+    
+    @GetMapping("/{roomId}/host")
+    Long getHostUserId(@PathVariable("roomId") Long roomId);
 }

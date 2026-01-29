@@ -3,32 +3,54 @@ import Stomp from "stompjs";
 
 let stompClient = null;
 
-export const connectSocket = (roomId, onMessageReceived, onUserJoined) => {
+// 🟢 Updated signature to accept onSignalReceived
+export const connectSocket = (
+  roomId,
+  onMessageReceived,
+  onUserJoined,
+  onSignalReceived
+) => {
   if (stompClient && stompClient.connected) {
-    stompClient.disconnect();
+    // If we are already connected to this room, don't reconnect
+    return;
   }
 
+  // 🟢 Point this to your API Gateway (8080) or Chat Service (8082)
+  // Ensure your Gateway forwards "/ws" to the Chat Service
   const socket = new SockJS("http://localhost:8083/ws");
   stompClient = Stomp.over(socket);
-  stompClient.debug = () => { };
+  stompClient.debug = () => {}; // Turn off debug logs for cleaner console
 
   stompClient.connect(
     {},
     () => {
       console.log("✅ WebSocket Connected!");
 
-      // 1. Subscribe to Messages
+      // 1. Subscribe to Chat Messages
       stompClient.subscribe(`/topic/room/${roomId}`, (payload) => {
         onMessageReceived(JSON.parse(payload.body));
       });
 
-      // 2. Subscribe to Participants
+      // 2. Subscribe to Participant Updates
       stompClient.subscribe(`/topic/room/${roomId}/participants`, (payload) => {
         onUserJoined(JSON.parse(payload.body));
       });
 
-      // 3. Send JOIN Signal
-      const user = JSON.parse(sessionStorage.getItem("user"));
+      // 3. 🟢 Subscribe to Video Signals (WebRTC)
+      stompClient.subscribe(`/topic/room/${roomId}/signal`, (payload) => {
+        if (onSignalReceived) {
+          const signal = JSON.parse(payload.body);
+          const currentUser = JSON.parse(localStorage.getItem("user"));
+
+          // 🛑 Filter out my own signals so I don't process my own Offer/Answer
+          if (currentUser && signal.sender !== currentUser.username) {
+            onSignalReceived(signal);
+          }
+        }
+      });
+
+      // 4. Send JOIN Signal (for Chat Presence)
+      const user = JSON.parse(localStorage.getItem("user"));
       if (user) {
         stompClient.send(
           `/app/chat/${roomId}/join`,
@@ -43,6 +65,41 @@ export const connectSocket = (roomId, onMessageReceived, onUserJoined) => {
     },
     (error) => console.log("Socket error:", error)
   );
+};
+
+// 🟢 New Function: Send WebRTC Signals (Offer, Answer, ICE)
+export const sendSignal = (roomId, type, payload) => {
+  if (stompClient && stompClient.connected) {
+    const user = JSON.parse(localStorage.getItem("user"));
+
+    // 🛡️ Safety Check: Ensure username exists
+    if (!user || !user.username) {
+      console.error("❌ Cannot send signal: User username is missing!", user);
+      return;
+    }
+
+    const signalMessage = {
+      type: type, // e.g. "offer"
+      roomId: roomId,
+      sender: user.username, // Matches @JsonProperty("sender")
+
+      // 🟢 CHANGE: Stringify the payload again so Java treats it as a simple String
+      payload: JSON.stringify(payload),
+    };
+
+    console.log(
+      "📤 Sending Signal:",
+      signalMessage.type,
+      "from",
+      signalMessage.sender
+    );
+
+    stompClient.send(
+      `/app/chat/${roomId}/signal`,
+      {},
+      JSON.stringify(signalMessage)
+    );
+  }
 };
 
 export const sendMessage = (roomId, messageContent) => {
@@ -81,8 +138,6 @@ export const notifyHostLeft = (roomId) => {
 
 export const disconnectSocket = () => {
   if (stompClient) {
-    // ONLY disconnect if it's actually in a connected state
-    // STOMP internal state 0: CONNECTING, 1: CONNECTED
     if (stompClient.connected) {
       try {
         stompClient.disconnect(() => {

@@ -49,21 +49,6 @@ public class StreamService {
         return streamRepository.save(stream);
     }
 
-//	public Stream startStream(Long roomId, Long userId, StreamType type, String source) {
-//
-//// TEMP: bypass room-service
-//		Long hostId = userId; // assume caller is host
-//
-//		Stream stream = streamRepository.findByRoomId(roomId).orElse(new Stream(roomId, hostId, type, source));
-//
-//		stream.start();
-//
-//		streamStateRepository.saveState(roomId,
-//				Map.of("status", stream.getStatus().name(), "media", source, "time", 0.0));
-//
-//		return streamRepository.save(stream);
-//	}
-
 	public Stream pauseStream(Long roomId, Long userId, Double time) {
 
 		Long hostId = roomServiceClient.getHostUserId(roomId);
@@ -80,28 +65,6 @@ public class StreamService {
 
 		return streamRepository.save(stream);
 	}
-	
-//	public Stream pauseStream(Long roomId, Long userId, Double time) {
-//
-//	    // TEMP: bypass room-service
-//	    Long hostId = userId; // assume caller is host
-//
-//	    Stream stream = streamRepository.findByRoomId(roomId)
-//	            .orElseThrow(() -> new IllegalStateException("Stream not found"));
-//
-//	    stream.pause(time);
-//
-//	    streamStateRepository.saveState(
-//	            roomId,
-//	            Map.of(
-//	                    "status", stream.getStatus().name(),
-//	                    "time", time
-//	            )
-//	    );
-//
-//	    return streamRepository.save(stream);
-//	}
-//	
 
 	public void stopStream(Long roomId, Long userId) {
 
@@ -118,19 +81,4 @@ public class StreamService {
 		streamStateRepository.delete(roomId);
 		streamRepository.save(stream);
 	}
-
-
-//public void stopStream(Long roomId, Long userId) {
-//
-//    // TEMP: bypass room-service
-//    Long hostId = userId; // assume caller is host
-//
-//    Stream stream = streamRepository.findByRoomId(roomId)
-//            .orElseThrow(() -> new IllegalStateException("Stream not found"));
-//
-//    stream.stop();
-//
-//    streamStateRepository.delete(roomId);
-//    streamRepository.save(stream);
-//}
 }
