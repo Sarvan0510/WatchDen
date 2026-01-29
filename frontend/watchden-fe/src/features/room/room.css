@@ -190,3 +190,11 @@
 .chat-input-area button:hover {
   background-color: #4f46e5;
 }
+
+/* --- CHAT PANEL FIX --- */
+.chat-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
