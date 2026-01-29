@@ -30,4 +30,10 @@ export const roomApi = {
     const response = await api.get(`/rooms/${roomCode}`);
     return response.data;
   },
+
+  getRoomHost: async (roomId) => {
+    // GET /api/rooms/{roomId}/host
+    const response = await api.get(`/rooms/${roomId}/host`);
+    return response.data;
+  },
 };

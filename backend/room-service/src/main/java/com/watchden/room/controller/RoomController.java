@@ -72,4 +72,11 @@ public class RoomController {
 		RoomListResponseDTO response = roomService.getRoomDetails(roomCode);
 		return ResponseEntity.ok(response);
 	}
+	
+	// --------------- Get Host ID (Internal for Stream Service) ---------------
+    @GetMapping("/{roomId}/host")
+    public ResponseEntity<Long> getHostId(@PathVariable Long roomId) {
+        Long hostId = roomService.getHostIdByRoomId(roomId);
+        return ResponseEntity.ok(hostId);
+    }
 }

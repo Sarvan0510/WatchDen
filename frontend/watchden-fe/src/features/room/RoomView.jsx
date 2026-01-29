@@ -3,28 +3,253 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../../api/api";
 import { userApi } from "../../api/user.api";
 import { roomApi } from "../../api/room.api";
+import { streamApi } from "../../api/stream.api";
 import RoomHeader from "./RoomHeader";
 import VideoPlayer from "./VideoPlayer";
 import ChatPanel from "./ChatPanel";
 import ParticipantList from "./ParticipantList";
 import { connectSocket, disconnectSocket } from "../../socket/roomSocket";
 import { authUtils } from "../auth/auth.utils";
+import { useWebRTC } from "../../hooks/useWebRTC";
+import { getLocalMedia } from "../../hooks/useLocalMedia";
+import { createMp4Stream } from "../../hooks/useMP4Stream";
+import HostControls from "./HostControls";
+import MediaControls from "./MediaControls";
+import PlayerControls from "./PlayerControls";
 import "./room.css";
 
 const RoomView = () => {
   const { roomCode } = useParams();
   const navigate = useNavigate();
 
+  // --- Basic State ---
   const [messages, setMessages] = useState([]);
   const [participants, setParticipants] = useState([]);
   const [profileMap, setProfileMap] = useState({});
   const [user, setUser] = useState(() => authUtils.getUser());
+
+  // --- Room State ---
+  const [isHost, setIsHost] = useState(false);
+  const [hostId, setHostId] = useState(null);
+  const [hostLeft, setHostLeft] = useState(false);
+  const [countdown, setCountdown] = useState(5);
+  const [numericRoomId, setNumericRoomId] = useState(null);
+
+  // --- WebRTC & Media State ---
+  const [localStream, setLocalStream] = useState(null);
+  const [playerState, setPlayerState] = useState({
+    isPlaying: false,
+    isMp4: false,
+    currentTime: 0,
+    duration: 0,
+  });
+
+  const [isCamOn, setIsCamOn] = useState(false);
+  const [isMicOn, setIsMicOn] = useState(false);
+
+  const localStreamRef = useRef(null);
   const isConnected = useRef(false);
 
-  // Sync User State (Listen for Profile Updates)
+  // Refs
+  const mp4VideoRef = useRef(null);
+  const screenStreamRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const joinSentRef = useRef(false);
+
+  const { remoteStreams, handleIncomingSignal, replaceVideoTrack } = useWebRTC(
+    roomCode,
+    user
+  );
+
+  // 🟢 FIX 1: Robust Stream Selection (The "Safety Net")
+  const hostProfile = profileMap[hostId];
+  const hostUsername = hostProfile?.username;
+
+  // Debugging log to see if we found the stream
+  console.log("Stream Select:", {
+    hostId,
+    hostUsername,
+    streams: remoteStreams.size,
+  });
+
+  const activeStream = isHost
+    ? localStream
+    : (hostUsername && remoteStreams.get(hostUsername)) ||
+      // Fallback: If we don't know the name yet, but there is ONE stream, play it!
+      (remoteStreams.size > 0 ? remoteStreams.values().next().value : null);
+
+  // --- MEDIA HANDLERS ---
+  const handleToggleCam = () => {
+    if (!localStream) return;
+    const videoTrack = localStream.getVideoTracks()[0];
+    if (videoTrack) {
+      videoTrack.enabled = !videoTrack.enabled;
+      setIsCamOn(videoTrack.enabled);
+    }
+  };
+
+  const handleToggleMic = () => {
+    if (!localStream) return;
+    const audioTrack = localStream.getAudioTracks()[0];
+    if (audioTrack) {
+      audioTrack.enabled = !audioTrack.enabled;
+      setIsMicOn(audioTrack.enabled);
+    }
+  };
+
+  // --- PLAYBACK HANDLERS ---
+  const handlePlayPause = () => {
+    const video = mp4VideoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      video.play();
+      setPlayerState((prev) => ({ ...prev, isPlaying: true }));
+    } else {
+      video.pause();
+      setPlayerState((prev) => ({ ...prev, isPlaying: false }));
+    }
+  };
+
+  const handleStop = () => {
+    const video = mp4VideoRef.current;
+    if (video) {
+      video.pause();
+      video.currentTime = 0;
+      setPlayerState((prev) => ({ ...prev, isPlaying: false, currentTime: 0 }));
+    }
+  };
+
+  const handleSeek = (time) => {
+    const video = mp4VideoRef.current;
+    if (video) {
+      video.currentTime = time;
+      setPlayerState((prev) => ({ ...prev, currentTime: time }));
+    }
+  };
+
+  const handleSkipForward = () => {
+    const video = mp4VideoRef.current;
+    if (video)
+      video.currentTime = Math.min(video.currentTime + 10, video.duration);
+  };
+
+  const handleSkipBack = () => {
+    const video = mp4VideoRef.current;
+    if (video) video.currentTime = Math.max(video.currentTime - 10, 0);
+  };
+
+  const handleGoToStart = () => {
+    const video = mp4VideoRef.current;
+    if (video) video.currentTime = 0;
+  };
+
+  const handleGoToEnd = () => {
+    const video = mp4VideoRef.current;
+    if (video) video.currentTime = video.duration;
+  };
+
+  // --- HOST CONTROLS ---
+
+  const handleStartMp4 = async (file) => {
+    if (!isHost || !file) return;
+    try {
+      const { video, stream } = await createMp4Stream(file);
+      mp4VideoRef.current = video;
+
+      video.ontimeupdate = () => {
+        setPlayerState((prev) => ({ ...prev, currentTime: video.currentTime }));
+      };
+
+      video.onloadedmetadata = () => {
+        setPlayerState((prev) => ({ ...prev, duration: video.duration }));
+      };
+
+      video.onended = () =>
+        setPlayerState((prev) => ({ ...prev, isPlaying: false }));
+
+      setLocalStream(stream);
+      localStreamRef.current = stream;
+      replaceVideoTrack(stream);
+
+      await video.play();
+      setPlayerState({
+        isPlaying: true,
+        isMp4: true,
+        currentTime: 0,
+        duration: video.duration || 0,
+      });
+
+      await streamApi.startStream({
+        roomId: numericRoomId,
+        userId: user.id,
+        type: "MP4",
+        source: file.name,
+      });
+    } catch (e) {
+      console.error("MP4 Error", e);
+    }
+  };
+
+  const handleStartScreen = async () => {
+    if (!isHost) return;
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true,
+      });
+      screenStreamRef.current = stream;
+
+      setLocalStream(stream);
+      localStreamRef.current = stream;
+      replaceVideoTrack(stream);
+      setPlayerState({
+        isPlaying: true,
+        isMp4: false,
+        currentTime: 0,
+        duration: 0,
+      });
+
+      stream.getVideoTracks()[0].onended = handleStopScreen;
+
+      await streamApi.startStream({
+        roomId: numericRoomId,
+        userId: user.id,
+        type: "SCREEN",
+        source: "Screen",
+      });
+    } catch (e) {
+      console.error("Screen Share Error", e);
+    }
+  };
+
+  const handleStopScreen = async () => {
+    if (!isHost) return;
+
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((t) => t.stop());
+      screenStreamRef.current = null;
+    }
+    if (mp4VideoRef.current) {
+      mp4VideoRef.current.pause();
+      mp4VideoRef.current = null;
+    }
+
+    setPlayerState((prev) => ({ ...prev, isPlaying: false, isMp4: false }));
+
+    const camStream = await getLocalMedia();
+    camStream.getVideoTracks()[0].enabled = isCamOn;
+    camStream.getAudioTracks()[0].enabled = isMicOn;
+
+    setLocalStream(camStream);
+    localStreamRef.current = camStream;
+    replaceVideoTrack(camStream);
+
+    await streamApi.stopStream({ roomId: roomCode, userId: user.id });
+  };
+
+  // --- EFFECTS ---
   useEffect(() => {
     const handleUserUpdate = () => {
-      console.log("RoomView: User updated, refreshing state...");
       setUser(authUtils.getUser());
     };
     window.addEventListener("user-updated", handleUserUpdate);
@@ -37,33 +262,29 @@ const RoomView = () => {
     navigate("/login");
   };
 
+  // 🟢 FIX 2: Explicitly fetch Host Profile (Fixes undefined username)
   useEffect(() => {
     const syncProfiles = async () => {
-      if (participants.length === 0) return;
+      // Create a set of IDs to fetch: Participants + Host
+      const uniqueIds = new Set(participants.map((id) => Number(id)));
+      if (hostId) uniqueIds.add(Number(hostId));
+
+      if (uniqueIds.size === 0) return;
 
       try {
-        // Convert participants to numbers if they come as strings from Redis
-        const userIds = participants.map((id) => Number(id));
+        const userIds = Array.from(uniqueIds);
         const profiles = await userApi.getUsersBatch(userIds);
-
         const newMap = {};
         profiles.forEach((p) => {
           newMap[p.userId] = p;
         });
-
-        // Merge with existing map to prevent flickering
         setProfileMap((prev) => ({ ...prev, ...newMap }));
       } catch (err) {
-        console.error("Failed to sync participant profiles:", err);
+        console.error("Profile sync failed", err);
       }
     };
-
     syncProfiles();
-  }, [participants]);
-
-  const [hostLeft, setHostLeft] = useState(false);
-  const [countdown, setCountdown] = useState(5);
-  const [isHost, setIsHost] = useState(false);
+  }, [participants, hostId]); // Added hostId dependency
 
   useEffect(() => {
     let timer;
@@ -76,6 +297,26 @@ const RoomView = () => {
   }, [hostLeft, countdown, navigate]);
 
   useEffect(() => {
+    if (isHost && !localStream) {
+      const startMedia = async () => {
+        try {
+          const stream = await getLocalMedia();
+          stream.getVideoTracks().forEach((t) => (t.enabled = false));
+          stream.getAudioTracks().forEach((t) => (t.enabled = false));
+
+          setLocalStream(stream);
+          localStreamRef.current = stream;
+          setIsCamOn(false);
+          setIsMicOn(false);
+        } catch (error) {
+          console.error("Local media failed", error);
+        }
+      };
+      startMedia();
+    }
+  }, [isHost, localStream]);
+
+  useEffect(() => {
     if (!authUtils.isAuthenticated()) {
       navigate("/login");
       return;
@@ -84,11 +325,9 @@ const RoomView = () => {
     const loadHistory = async () => {
       try {
         const response = await api.get(`/chat/history/${roomCode}`);
-        if (Array.isArray(response.data)) {
-          setMessages(response.data);
-        }
+        if (Array.isArray(response.data)) setMessages(response.data);
       } catch (err) {
-        console.error("Failed to load history:", err);
+        console.error("History failed", err);
       }
     };
     loadHistory();
@@ -96,44 +335,14 @@ const RoomView = () => {
     const checkHostStatus = async (retryCount = 0) => {
       try {
         const details = await roomApi.getRoomDetails(roomCode);
+        setHostId(details.hostUserId);
+        setNumericRoomId(details.roomId);
         if (user && details.hostUserId == user.id) {
-          console.log("User is Host");
           setIsHost(true);
-        } else {
-          console.log(
-            "Note: User is NOT host. HostID:",
-            details.hostUserId,
-            "UserID:",
-            user.id
-          );
         }
       } catch (error) {
-        // Retry Loop for 404/500 (Race Condition Handling)
-        if (
-          retryCount < 2 &&
-          error.response &&
-          (error.response.status === 404 || error.response.status === 500)
-        ) {
-          console.warn(
-            `Room fetch failed (Attempt ${retryCount + 1}). Retrying in 1s...`
-          );
+        if (retryCount < 2)
           setTimeout(() => checkHostStatus(retryCount + 1), 1000);
-          return;
-        }
-
-        if (
-          error.response &&
-          (error.response.status === 404 || error.response.status === 500)
-        ) {
-          console.warn(
-            "Room details fetch failed (Room might be closed/deleted)."
-          );
-          // Auto-redirect if room is dead
-          alert("This room no longer exists.");
-          navigate("/rooms");
-        } else {
-          console.error("Failed to fetch room details:", error);
-        }
       }
     };
     checkHostStatus();
@@ -142,19 +351,27 @@ const RoomView = () => {
       isConnected.current = true;
       connectSocket(
         roomCode,
-        (newMessage) => {
-          if (newMessage.type === "HOST_LEFT") {
-            setHostLeft(true);
-          } else {
-            setMessages((prev) => [...prev, newMessage]);
-          }
+        (msg) => {
+          if (msg.type === "HOST_LEFT") setHostLeft(true);
+          else setMessages((prev) => [...prev, msg]);
         },
-        (participantUpdate) => {
-          if (Array.isArray(participantUpdate)) {
-            setParticipants(participantUpdate);
-          }
-        }
+        (users) => setParticipants(users),
+        (signal) => handleIncomingSignal(signal, localStreamRef.current)
       );
+
+      // 🟢 FIX 1: Announce presence so Host starts the call!
+      // 🟢 FIX: Prevent Double Join using a Ref
+      if (!joinSentRef.current) {
+        joinSentRef.current = true; // Mark as sent immediately
+
+        setTimeout(() => {
+          // Import sendSignal dynamically to avoid dependency cycles
+          import("../../socket/roomSocket").then(({ sendSignal }) => {
+            console.log("👋 Sending JOIN signal (ONCE)...");
+            sendSignal(roomCode, "join", {});
+          });
+        }, 1500); // Increased delay slightly to ensure socket is fully ready
+      }
     }
 
     return () => {
@@ -173,15 +390,14 @@ const RoomView = () => {
         onLogout={handleLogout}
         isHost={isHost}
       />
+
       <div className="room-container">
-        {/* Host Left Overlay */}
         {hostLeft && (
           <div style={styles.overlay}>
             <div style={styles.overlayContent}>
               <h2>Room Closed</h2>
               <p>The host has left the room.</p>
               <div style={styles.countdown}>{countdown}</div>
-              <p>Redirecting to lobby...</p>
               <button
                 onClick={() => navigate("/rooms")}
                 style={styles.overlayBtn}
@@ -194,26 +410,61 @@ const RoomView = () => {
 
         <div className="main-content">
           <div className="video-section">
-            <VideoPlayer roomCode={roomCode} />
+            <VideoPlayer
+              roomCode={roomCode}
+              stream={activeStream}
+              isHost={isHost}
+            />
+
+            {isHost && (
+              <div style={styles.controlsSection}>
+                {playerState.isMp4 && (
+                  <PlayerControls
+                    isPlaying={playerState.isPlaying}
+                    currentTime={playerState.currentTime}
+                    duration={playerState.duration}
+                    onPlayPause={handlePlayPause}
+                    onStop={handleStop}
+                    onSeek={handleSeek}
+                    onSkipForward={handleSkipForward}
+                    onSkipBack={handleSkipBack}
+                    onGoToStart={handleGoToStart}
+                    onGoToEnd={handleGoToEnd}
+                  />
+                )}
+
+                <HostControls
+                  onStartMp4={handleStartMp4}
+                  onStartScreen={handleStartScreen}
+                  onStopScreen={handleStopScreen}
+                  fileInputRef={fileInputRef}
+                />
+
+                <MediaControls
+                  isCamOn={isCamOn}
+                  isMicOn={isMicOn}
+                  onToggleCam={handleToggleCam}
+                  onToggleMic={handleToggleMic}
+                  disabled={!localStream}
+                />
+              </div>
+            )}
           </div>
         </div>
+
         <div className="sidebar">
-          <div className="sidebar">
-            <div className="participants-section">
-              {/* Pass profileMap to resolve names in the list */}
-              <ParticipantList
-                participants={participants}
-                profileMap={profileMap}
-              />
-            </div>
-            <div className="chat-section">
-              {/* Pass profileMap to resolve names in chat bubbles */}
-              <ChatPanel
-                messages={messages}
-                roomCode={roomCode}
-                profileMap={profileMap}
-              />
-            </div>
+          <div className="participants-section">
+            <ParticipantList
+              participants={participants}
+              profileMap={profileMap}
+            />
+          </div>
+          <div className="chat-section">
+            <ChatPanel
+              messages={messages}
+              roomCode={roomCode}
+              profileMap={profileMap}
+            />
           </div>
         </div>
       </div>
@@ -226,7 +477,7 @@ const styles = {
     height: "100vh",
     display: "flex",
     flexDirection: "column",
-    backgroundColor: "#0f172a", // Match landing background
+    backgroundColor: "#0f172a",
   },
   overlay: {
     position: "fixed",
@@ -234,8 +485,8 @@ const styles = {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(15, 23, 42, 0.8)", //  Slightly more transparent
-    backdropFilter: "blur(10px)", //  Blur Effect
+    backgroundColor: "rgba(15, 23, 42, 0.8)",
+    backdropFilter: "blur(10px)",
     zIndex: 100,
     display: "flex",
     alignItems: "center",
@@ -243,9 +494,7 @@ const styles = {
     textAlign: "center",
     color: "white",
   },
-  overlayContent: {
-    animation: "fadeIn 0.5s ease",
-  },
+  overlayContent: { animation: "fadeIn 0.5s ease" },
   countdown: {
     fontSize: "5rem",
     fontWeight: "800",
@@ -261,6 +510,12 @@ const styles = {
     borderRadius: "8px",
     cursor: "pointer",
     fontSize: "1rem",
+  },
+  controlsSection: {
+    padding: "0 20px 20px 20px",
+    backgroundColor: "#020617",
+    borderBottomLeftRadius: "12px",
+    borderBottomRightRadius: "12px",
   },
 };
 

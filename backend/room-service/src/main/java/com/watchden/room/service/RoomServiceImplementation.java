@@ -177,6 +177,13 @@ public class RoomServiceImplementation implements RoomService {
 				})
 				.collect(Collectors.toList());
 	}
+	
+	@Override
+	public Long getHostIdByRoomId(Long roomId) {
+	    return roomRepository.findById(roomId)
+	            .map(Room::getHostUserId)
+	            .orElseThrow(() -> new RoomNotFoundException("Room not found with ID: " + roomId));
+	}
 
 	// Utility Function
 	private String generateRoomCode() {

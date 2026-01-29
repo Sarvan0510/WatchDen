@@ -80,6 +80,6 @@ public class ChatController {
         // Send to "/topic/room/{roomId}/participants"
         messagingTemplate.convertAndSend("/topic/room/" + roomId + "/participants", activeUsers);
 
-        System.out.println("👥 Updated Participants for " + roomId + ": " + activeUsers);
+        System.out.println("Updated Participants for " + roomId + ": " + activeUsers);
     }
 }
