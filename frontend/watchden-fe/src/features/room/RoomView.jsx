@@ -81,6 +81,21 @@ const RoomView = () => {
       return;
     }
 
+    //This will increase the count of participants in the public room in roomList
+    const joinRoomOnLoad = async () => {
+      try {
+        // Attempt to join the room in the backend to register participant
+        await roomApi.joinRoom(roomCode);
+        console.log("Joined room successfully on load");
+      } catch (error) {
+        // Ignore "Already Joined" errors, but log others
+        if (error.response && error.response.status !== 409 && error.response.data?.message !== "User already joined this room") {
+          console.error("Failed to auto-join room:", error);
+        }
+      }
+    };
+    joinRoomOnLoad();
+
     const loadHistory = async () => {
       try {
         const response = await api.get(`/chat/history/${roomCode}`);
@@ -182,26 +197,25 @@ const RoomView = () => {
           </div>
         </div>
         <div className="sidebar">
-          <div className="sidebar">
-            <div className="participants-section">
-              {/* 🟢 Pass profileMap to resolve names in the list */}
-              <ParticipantList
-                participants={participants}
-                profileMap={profileMap}
-              />
-            </div>
-            <div className="chat-section">
-              {/* 🟢 Pass profileMap to resolve names in chat bubbles */}
-              <ChatPanel
-                messages={messages}
-                roomCode={roomCode}
-                profileMap={profileMap}
-              />
-            </div>
+          <div className="participants-section">
+            {/* Pass profileMap to resolve names in the list */}
+            <ParticipantList
+              participants={participants}
+              profileMap={profileMap}
+            />
+          </div>
+          <div className="chat-section">
+            {/* Pass profileMap to resolve names in chat bubbles */}
+            <ChatPanel
+              messages={messages}
+              roomCode={roomCode}
+              profileMap={profileMap}
+            />
           </div>
         </div>
       </div>
     </div>
+
   );
 };
 

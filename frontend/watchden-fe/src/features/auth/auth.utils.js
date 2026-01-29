@@ -4,33 +4,33 @@ const TOKEN_KEY = "token";
 const USER_KEY = "user";
 
 export const authUtils = {
-  getToken: () => localStorage.getItem(TOKEN_KEY),
+  getToken: () => sessionStorage.getItem(TOKEN_KEY),
 
   getUser: () => {
-    const userStr = localStorage.getItem(USER_KEY);
+    const userStr = sessionStorage.getItem(USER_KEY);
     return userStr ? JSON.parse(userStr) : null;
   },
 
   setAuth: (token, user) => {
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    sessionStorage.setItem(TOKEN_KEY, token);
+    sessionStorage.setItem(USER_KEY, JSON.stringify(user));
   },
 
   updateUser: (user) => {
     console.log("🔄 authUtils: Updating user in storage:", user);
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    sessionStorage.setItem(USER_KEY, JSON.stringify(user));
 
     console.log("📢 authUtils: Dispatching 'user-updated' event");
     window.dispatchEvent(new Event("user-updated"));
   },
 
   clearAuth: () => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(USER_KEY);
   },
 
   isAuthenticated: () => {
-    const token = localStorage.getItem(TOKEN_KEY);
+    const token = sessionStorage.getItem(TOKEN_KEY);
     if (!token) return false;
 
     try {
