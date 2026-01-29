@@ -21,6 +21,9 @@ public interface RoomService {
 	 */
 	void leaveRoom(String roomCode, Long userId);
 
+	// Inside RoomService interface
+	Long getHostIdByRoomId(Long roomId);
+	
 	// List all public rooms
 	List<RoomListResponseDTO> getPublicRooms();
 

@@ -38,7 +38,7 @@ const RoomHeader = ({ roomId, user: initialUser, isHost }) => {
       // Host Leave Logic
       if (isHost) {
         const confirmLeave = window.confirm(
-          "You are the Host. Leaving will close the room for everyone. Are you sure?"
+          "You are hosting a stream. Leaving will stop playback. Are you sure?"
         );
         if (!confirmLeave) return;
 
