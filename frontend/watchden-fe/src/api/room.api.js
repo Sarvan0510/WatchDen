@@ -15,7 +15,11 @@ export const roomApi = {
 
   getPublicRooms: async () => {
     // GET /api/rooms/public
-    const response = await api.get("/rooms/public");
+    const response = await api.get(`/rooms/public?_t=${Date.now()}`);
+
+    //Removed this because 
+    //const response = await api.get("/rooms/public");
+
     return response.data;
   },
 

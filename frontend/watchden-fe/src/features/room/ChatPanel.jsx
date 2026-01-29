@@ -6,7 +6,7 @@ const ChatPanel = ({ messages, roomCode }) => {
   const messagesEndRef = useRef(null);
 
   // 1. Get current user to decide Left vs Right alignment
-  const currentUser = JSON.parse(localStorage.getItem("user"))?.username;
+  const currentUser = JSON.parse(sessionStorage.getItem("user"))?.username;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -36,7 +36,7 @@ const ChatPanel = ({ messages, roomCode }) => {
           )
           .map((msg, index) => {
             const currentUser = JSON.parse(
-              localStorage.getItem("user")
+              sessionStorage.getItem("user")
             )?.username;
             const isMe = msg.sender === currentUser;
 

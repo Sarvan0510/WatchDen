@@ -17,42 +17,45 @@ public class SecurityConfig {
 	@Bean
 	public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
 
-	    return http
-	            // 1. Disable CSRF (Correct)
-	            .csrf(ServerHttpSecurity.CsrfSpec::disable)
-	            
-	            // 🔴 2. FIX: ADD THIS LINE TO ACTIVATE YOUR CORS BEAN
-	            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+		return http
+				// 1. Disable CSRF (Correct)
+				.csrf(ServerHttpSecurity.CsrfSpec::disable)
 
-	            .authorizeExchange(exchange -> exchange
-	                    // Allow CORS preflight
-	                    .pathMatchers(HttpMethod.OPTIONS).permitAll()
+				// 2. FIX: ADD THIS LINE TO ACTIVATE YOUR CORS BEAN
+				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-	                    // Allow auth endpoints
-	                    .pathMatchers("/api/auth/**").permitAll()
+				.authorizeExchange(exchange -> exchange
+						// Allow CORS preflight
+						.pathMatchers(HttpMethod.OPTIONS).permitAll()
 
-	                    // Allow public room listing
-	                    .pathMatchers("/api/rooms/public").permitAll()
-	                    
-	                    // all socket connections
-	                    .pathMatchers("/ws/**").permitAll()
+						// Allow auth endpoints
+						.pathMatchers("/api/auth/**").permitAll()
 
-	                    // Everything else
-	                    .anyExchange().permitAll() // Note: You might want to change this back to .authenticated() later!
-	            )
-	            .build();
+						// Allow public room listing
+						.pathMatchers("/api/rooms/public").permitAll()
+
+						// all socket connections
+						.pathMatchers("/ws/**").permitAll()
+
+						// Everything else
+						.anyExchange().permitAll() // might want to change this back to .authenticated()
+
+				)
+				.build();
 	}
-    
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true);
-        
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
-    }
+
+	@Bean
+	public CorsConfigurationSource corsConfigurationSource() {
+		CorsConfiguration configuration = new CorsConfiguration();
+
+		configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+		// configuration.setAllowedOrigins(List.of("http://localhost:5173","http://localhost:5174","http://localhost:3000","http://127.0.0.1:5173"));
+		configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+		configuration.setAllowedHeaders(List.of("*"));
+		configuration.setAllowCredentials(true);
+
+		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("/**", configuration);
+		return source;
+	}
 }

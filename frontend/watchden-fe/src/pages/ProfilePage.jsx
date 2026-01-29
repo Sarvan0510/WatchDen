@@ -10,7 +10,7 @@ const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false); //  Toggle state
 
-  const userString = localStorage.getItem("user");
+  const userString = sessionStorage.getItem("user");
   const currentUser = userString ? JSON.parse(userString) : null;
 
   useEffect(() => {
