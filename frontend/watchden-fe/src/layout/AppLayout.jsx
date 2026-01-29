@@ -19,7 +19,9 @@ const AppLayout = () => {
 
     // 2. Listen for External Updates (Profile Page)
     const handleUserUpdate = () => {
-      console.log("👂 AppLayout: Received 'user-updated' event. Refreshing state...");
+      console.log(
+        "👂 AppLayout: Received 'user-updated' event. Refreshing state..."
+      );
       const updatedUser = authUtils.getUser();
       console.log("👤 AppLayout: New User State:", updatedUser);
       setUser(updatedUser);
@@ -35,9 +37,15 @@ const AppLayout = () => {
         <div
           className="logo"
           onClick={() => navigate("/")}
-          style={{ cursor: "pointer" }}
+          style={{
+            cursor: "pointer",
+            fontWeight: "800",
+            fontSize: "1.25rem",
+            letterSpacing: "-0.5px",
+            color: "white",
+          }}
         >
-          WatchDen
+          Watch<span style={{ color: "#6366f1" }}>Den</span>
         </div>
 
         <nav className="nav-links">
