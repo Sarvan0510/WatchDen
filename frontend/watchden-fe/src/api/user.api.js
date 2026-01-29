@@ -9,7 +9,7 @@ export const userApi = {
 
   updateProfile: async (data) => {
     // 🟢 Retrieve and parse the user object first
-    const userString = localStorage.getItem("user");
+    const userString = sessionStorage.getItem("user");
     const currentUser = userString ? JSON.parse(userString) : null;
 
     if (!currentUser || !currentUser.id) {
@@ -31,7 +31,7 @@ export const userApi = {
 
   // Matches @PostMapping("/upload-avatar")
   uploadAvatar: async (file) => {
-    const userString = localStorage.getItem("user");
+    const userString = sessionStorage.getItem("user");
     const currentUser = userString ? JSON.parse(userString) : null;
 
     if (!currentUser || !currentUser.id) {

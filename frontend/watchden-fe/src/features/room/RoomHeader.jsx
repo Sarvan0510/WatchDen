@@ -52,10 +52,11 @@ const RoomHeader = ({ roomId, user: initialUser, isHost }) => {
 
       // Only navigate if leave was successful or initiated
       await roomApi.leaveRoom(roomId);
+      navigate("/rooms");
 
     } catch (error) {
       console.error("Error leaving room:", error);
-      
+
       // Still navigate if error is non - critical 
       navigate("/rooms");
     }

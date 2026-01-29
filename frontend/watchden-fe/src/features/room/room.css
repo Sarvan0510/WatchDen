@@ -1,8 +1,10 @@
 /* --- LAYOUT CONTAINERS --- */
 .room-container {
   display: flex;
-  /* 🟢 FIX 1: Subtract header height so it fits exactly in viewport */
-  height: calc(100vh - 64px);
+  flex: 1;
+  /* Take remaining height */
+  min-height: 0;
+  /* Important for nested scroll */
   background-color: #0f172a;
   color: #f1f5f9;
   overflow: hidden; /* Prevent double scrollbars */
@@ -12,9 +14,9 @@
   flex: 3;
   display: flex;
   flex-direction: column;
-  padding: 0; /* Removed padding to let video touch edges if needed */
+  padding: 24px;
   background-color: #020617;
-  min-width: 0; /* Prevents flex items from overflowing horizontally */
+  /* Pure dark for video focus */
 }
 
 /* 🟢 FIX 2: Make video section a Flex Column */
@@ -67,7 +69,8 @@
 }
 
 .badge-count {
-  background-color: #6366f1; /* Indigo badge */
+  background-color: #6366f1;
+  /* Indigo badge */
   color: white;
   font-size: 0.7rem;
   padding: 2px 8px;
@@ -119,7 +122,8 @@
 }
 
 .message-content {
-  background-color: #1e293b; /* Slate for others */
+  background-color: #1e293b;
+  /* Slate for others */
   color: #e2e8f0;
   padding: 10px 14px;
   border-radius: 14px;
@@ -130,7 +134,8 @@
 }
 
 .my-message .message-content {
-  background-color: #6366f1; /* Indigo for me */
+  background-color: #6366f1;
+  /* Indigo for me */
   color: white;
   border-top-left-radius: 14px;
   border-top-right-radius: 4px;
