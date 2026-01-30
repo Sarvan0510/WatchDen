@@ -23,7 +23,7 @@ public class RedisSubscriber implements MessageListener {
     public void onMessage(Message message, byte[] pattern) {
         try {
             String body = new String(message.getBody());
-            // System.out.println("1️⃣ REDIS RAW MSG: " + body);
+            System.out.println("1️⃣ REDIS RAW MSG: " + body);
 
             ChatMessage chatMessage = objectMapper.readValue(body, ChatMessage.class);
             // System.out.println("2️⃣ PARSED ROOM ID: " + chatMessage.getRoomId());

@@ -116,10 +116,19 @@ export const useWebRTC = (roomId, user) => {
         sendSignal(roomId, "answer", { sdp: answer, target: sender });
 
       } else if (type === "answer" && pc) {
-        if (pc.signalingState === "have-local-offer") {
+        // Only set remote answer when we're waiting for it (avoid "wrong state: stable" when
+        // e.g. host switched to YouTube and we get a stale or duplicate answer)
+        if (pc.signalingState !== "have-local-offer") return;
+        try {
           await pc.setRemoteDescription(
             new RTCSessionDescription(payload.sdp || payload)
           );
+        } catch (answerErr) {
+          if (answerErr?.name === "InvalidStateError") {
+            console.warn("⚠️ Silencing WebRTC State Error:", answerErr.message);
+          } else {
+            throw answerErr;
+          }
         }
       } else if (type === "candidate" && pc) {
         if (payload.candidate) {

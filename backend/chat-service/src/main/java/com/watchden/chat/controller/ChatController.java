@@ -40,6 +40,9 @@ public class ChatController {
     @MessageMapping("/chat/{roomId}/sendMessage")
     public void sendMessage(@DestinationVariable String roomId, @Payload ChatMessage chatMessage) {
         chatMessage.setRoomId(roomId);
+        if (chatMessage.getType() == ChatMessage.Type.SYNC) {
+            System.out.println("SYNC received and publishing to room " + roomId);
+        }
         redisPublisher.publish(chatMessage);
     }
 

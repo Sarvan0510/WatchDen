@@ -29,6 +29,7 @@ export const connectSocket = (
 
       // 1. Subscribe to Chat Messages
       stompClient.subscribe(`/topic/room/${roomId}`, (payload) => {
+        console.log("📩 SOCKET MSG RECEIVED:", payload.body); // 🟢 LOG RAW MSG
         onMessageReceived(JSON.parse(payload.body));
       });
 

@@ -47,13 +47,13 @@ const HostControls = ({
           id="yt-input"
         />
         <button
-          style={{ ...styles.btn, flex: "0 0 auto", backgroundColor: "#ff0000", borderColor: "#cc0000" }}
+          style={{ ...styles.btn, flex: "0 0 auto", backgroundColor: "#ff0000", borderColor: "#cc0000", padding: "8px 16px" }}
           onClick={() => {
             const val = document.getElementById("yt-input").value;
             if (val) onStartYoutube(val);
           }}
         >
-          ▶ Load YouTube
+          ▶ Play
         </button>
       </div>
     </div>

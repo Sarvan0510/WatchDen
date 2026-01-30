@@ -8,7 +8,7 @@ import RoomHeader from "./RoomHeader";
 import VideoPlayer from "./VideoPlayer";
 import ChatPanel from "./ChatPanel";
 import ParticipantList from "./ParticipantList";
-import { connectSocket, disconnectSocket } from "../../socket/roomSocket";
+import { connectSocket, disconnectSocket, sendMessage } from "../../socket/roomSocket";
 import { authUtils } from "../auth/auth.utils";
 import { useWebRTC } from "../../hooks/useWebRTC";
 import { getLocalMedia } from "../../hooks/useLocalMedia";
@@ -19,7 +19,8 @@ import PlayerControls from "./PlayerControls";
 import "./room.css";
 
 const RoomView = () => {
-  const { roomCode } = useParams();
+  const { roomCode: rawRoomCode } = useParams();
+  const roomCode = rawRoomCode?.toUpperCase(); // 🟢 Case-insensitive matching
   const navigate = useNavigate();
 
   // --- Basic State ---
@@ -40,12 +41,19 @@ const RoomView = () => {
   const [playerState, setPlayerState] = useState({
     isPlaying: false,
     isMp4: false,
+    isYoutube: false, // 🟢 Initialize
+    youtubeUrl: null, // 🟢 Initialize
     currentTime: 0,
     duration: 0,
+    mediaName: null,
   });
 
   const [isCamOn, setIsCamOn] = useState(false);
   const [isMicOn, setIsMicOn] = useState(false);
+
+  // 🟢 LOCAL AUDIO STATE
+  const [isLocalMuted, setIsLocalMuted] = useState(true); // Start muted (autoplay policy)
+  const [localVolume, setLocalVolume] = useState(0.5);
 
   const localStreamRef = useRef(null);
   const isConnected = useRef(false);
@@ -63,13 +71,42 @@ const RoomView = () => {
   );
 
   const lastHostTimeRef = useRef(0); // 🟢 Track Host Time
+  const lastHeartbeatReceivedAt = useRef(Date.now()); // 🟢 Track Wall Clock Time of last heartbeat
 
-  // 🟢 PARTICIPANT: Handle "Snap to Host" on Play
-  const handleParticipantPlay = () => {
-    if (!isHost && playerState.isMp4 && videoPlayerRef.current) {
-      // Snap to "Live" edge to sync with Host
-      console.log("⚡ Snapping to Live Stream...");
+  // 🟢 HANDLE PLAYER EVENTS (Native Controls or Auto-Play)
+  const handlePlayerPlay = () => {
+    // HOST: Broadcast PLAY
+    if (isHost) {
+      if (!playerState.isPlaying) {
+        console.log("▶ HOST: Native Play Detected -> Broadcasting...");
+        setPlayerState(prev => ({ ...prev, isPlaying: true }));
+        sendMessage(roomCode, JSON.stringify({ type: "PLAY" }), "SYNC");
+      }
+      return;
+    }
+
+    // PARTICIPANT: Snap to Host
+    // 1. MP4 Snap to Live Edge (Buffer end)
+    if (playerState.isMp4 && videoPlayerRef.current) {
+      console.log("⚡ MP4: Snapping to Live Edge...");
       videoPlayerRef.current.jumpToLive();
+    }
+    // 2. YouTube Snap to Host Time (Heartbeat)
+    else if (playerState.isYoutube && videoPlayerRef.current) {
+      const hostTime = lastHostTimeRef.current || 0;
+      console.log(`⚡ YouTube: Snapping to Host Time: ${hostTime}s`);
+      videoPlayerRef.current.seek(hostTime);
+    }
+  };
+
+  const handlePlayerPause = () => {
+    // HOST: Broadcast PAUSE
+    if (isHost) {
+      if (playerState.isPlaying) {
+        console.log("⏸ HOST: Native Pause Detected -> Broadcasting...");
+        setPlayerState(prev => ({ ...prev, isPlaying: false }));
+        sendMessage(roomCode, JSON.stringify({ type: "PAUSE" }), "SYNC");
+      }
     }
   };
 
@@ -80,19 +117,19 @@ const RoomView = () => {
     if (isHost && (playerState.isMp4 || playerState.isYoutube)) {
       interval = setInterval(() => {
         const currentTime = mp4VideoRef.current?.currentTime || 0;
-        import("../../socket/roomSocket").then(({ sendMessage }) => {
-          // Include isMp4 and mediaName so new joiners can sync state
-          const payload = {
-            type: "HEARTBEAT",
-            time: currentTime,
-            isMp4: playerState.isMp4,
-            isYoutube: playerState.isYoutube, // 🟢 Send YouTube flag
-            youtubeUrl: playerState.youtubeUrl, // 🟢 Send URL
-            mediaName: playerState.mediaName,
-            isPlaying: playerState.isPlaying
-          };
-          sendMessage(roomCode, JSON.stringify(payload), "SYNC");
-        });
+
+        // Include isMp4 and mediaName so new joiners can sync state
+        const payload = {
+          type: "HEARTBEAT",
+          time: currentTime,
+          isMp4: playerState.isMp4,
+          isYoutube: playerState.isYoutube, // 🟢 Send YouTube flag
+          youtubeUrl: playerState.youtubeUrl, // 🟢 Send URL
+          mediaName: playerState.mediaName,
+          isPlaying: playerState.isPlaying
+        };
+        console.log("💓 HOST SENDING HEARTBEAT:", payload); // 🟢 LOG
+        sendMessage(roomCode, JSON.stringify(payload), "SYNC");
       }, 2000);
     }
     return () => clearInterval(interval);
@@ -137,25 +174,41 @@ const RoomView = () => {
 
   // --- PLAYBACK HANDLERS ---
   const handlePlayPause = () => {
-    const video = mp4VideoRef.current;
-    if (!video) return;
-
-    // Import sendMessage dynamically
-    import("../../socket/roomSocket").then(({ sendMessage }) => {
-      // 🟢 Payload is JSON string inside 'content' field
-      if (video.paused) {
-        video.play();
+    // 🟢 YouTube: use VideoPlayer ref (ReactPlayer); MP4: use native video element
+    if (playerState.isYoutube && videoPlayerRef.current) {
+      const nextPlaying = !playerState.isPlaying;
+      if (nextPlaying) {
+        videoPlayerRef.current.play();
         setPlayerState((prev) => ({ ...prev, isPlaying: true }));
         sendMessage(roomCode, JSON.stringify({ type: "PLAY" }), "SYNC");
       } else {
-        video.pause();
+        videoPlayerRef.current.pause();
         setPlayerState((prev) => ({ ...prev, isPlaying: false }));
         sendMessage(roomCode, JSON.stringify({ type: "PAUSE" }), "SYNC");
       }
-    });
+      return;
+    }
+
+    const video = mp4VideoRef.current;
+    if (!video) return;
+
+    if (video.paused) {
+      video.play();
+      setPlayerState((prev) => ({ ...prev, isPlaying: true }));
+      sendMessage(roomCode, JSON.stringify({ type: "PLAY" }), "SYNC");
+    } else {
+      video.pause();
+      setPlayerState((prev) => ({ ...prev, isPlaying: false }));
+      sendMessage(roomCode, JSON.stringify({ type: "PAUSE" }), "SYNC");
+    }
   };
 
   const handleStop = () => {
+    if (playerState.isYoutube && videoPlayerRef.current) {
+      videoPlayerRef.current.pause();
+      setPlayerState((prev) => ({ ...prev, isPlaying: false, currentTime: 0 }));
+      return;
+    }
     const video = mp4VideoRef.current;
     if (video) {
       video.pause();
@@ -230,13 +283,11 @@ const RoomView = () => {
 
       // 🟢 Broadcast LOAD Signal so others see thumbnail/title
       // AND Broadcast PLAY immediately so it auto-starts for everyone
-      import("../../socket/roomSocket").then(({ sendMessage }) => {
-        sendMessage(roomCode, JSON.stringify({ type: "LOAD", filename: file.name }), "SYNC");
+      sendMessage(roomCode, JSON.stringify({ type: "LOAD", filename: file.name }), "SYNC");
 
-        setTimeout(() => {
-          sendMessage(roomCode, JSON.stringify({ type: "PLAY" }), "SYNC");
-        }, 500); // Small delay to ensure LOAD handles first
-      });
+      setTimeout(() => {
+        sendMessage(roomCode, JSON.stringify({ type: "PLAY" }), "SYNC");
+      }, 500); // Small delay to ensure LOAD handles first
 
       await streamApi.startStream({
         roomId: numericRoomId,
@@ -321,31 +372,57 @@ const RoomView = () => {
     }
   };
 
-  // 🟢 NEW: YouTube Handler
-  const handleStartYoutube = (url) => {
+  // 🟢 Normalize YouTube URL so ReactPlayer can load it (handles youtu.be, extra params, whitespace)
+  const normalizeYoutubeUrl = (input) => {
+    const raw = typeof input === "string" ? input.trim() : "";
+    if (!raw) return null;
+    let videoId = null;
+    try {
+      // youtu.be/VIDEO_ID
+      const shortMatch = raw.match(/(?:youtu\.be\/)([A-Za-z0-9_-]{11})(?:\?|$)/);
+      if (shortMatch) {
+        videoId = shortMatch[1];
+      } else {
+        // youtube.com/watch?v=VIDEO_ID or embed/VIDEO_ID
+        const watchMatch = raw.match(/(?:v=|\/embed\/)([A-Za-z0-9_-]{11})/);
+        if (watchMatch) videoId = watchMatch[1];
+      }
+      if (videoId) return `https://www.youtube.com/watch?v=${videoId}`;
+    } catch (_) { }
+    return null;
+  };
+
+  // 🟢 YouTube Handler: normalize URL, await stop, then set state and broadcast
+  const handleStartYoutube = async (url) => {
     if (!isHost || !url) return;
 
-    // Stop any existing stream
-    handleStopScreen();
+    const normalizedUrl = normalizeYoutubeUrl(url);
+    if (!normalizedUrl) {
+      console.warn("Invalid YouTube URL:", url);
+      return;
+    }
 
-    // Update Local State
+    // Stop any existing stream first so our setState runs last (fixes isPlaying being overwritten)
+    await handleStopScreen();
+
+    // Update Local State (after stop so it isn't overwritten)
     setPlayerState({
-      isPlaying: true,  // Auto-play
+      isPlaying: true,
       isMp4: false,
       isYoutube: true,
       currentTime: 0,
       duration: 0,
       mediaName: "YouTube Video",
-      youtubeUrl: url
+      youtubeUrl: normalizedUrl,
     });
 
-    // Broadcast Signal
-    import("../../socket/roomSocket").then(({ sendMessage }) => {
-      sendMessage(roomCode, JSON.stringify({
-        type: "LOAD_YOUTUBE",
-        url: url
-      }), "SYNC");
-    });
+    // Broadcast Signal with normalized URL so all clients get a valid URL
+    // Broadcast Signal with normalized URL so all clients get a valid URL
+    sendMessage(
+      roomCode,
+      JSON.stringify({ type: "LOAD_YOUTUBE", url: normalizedUrl }),
+      "SYNC"
+    );
   };
 
   const handleStopScreen = async () => {
@@ -363,7 +440,10 @@ const RoomView = () => {
       mp4VideoRef.current = null;
     }
 
-    setPlayerState((prev) => ({ ...prev, isPlaying: false, isMp4: false }));
+    setPlayerState((prev) => ({ ...prev, isPlaying: false, isMp4: false, isYoutube: false, youtubeUrl: null }));
+
+    // 🟢 Broadcast STOP to all participants so they reset too
+    sendMessage(roomCode, JSON.stringify({ type: "STOP" }), "SYNC");
 
     const camStream = await getLocalMedia();
     camStream.getVideoTracks()[0].enabled = isCamOn;
@@ -391,7 +471,7 @@ const RoomView = () => {
 
     // 🟢 Prevent Accidental Host Refresh
     const handleBeforeUnload = (e) => {
-      if (isHost && playerState.isMp4) {
+      if (isHost && (playerState.isMp4 || playerState.isYoutube)) {
         e.preventDefault();
         e.returnValue = "You are hosting a stream. Leaving will stop playback. Are you sure?";
         return e.returnValue;
@@ -403,7 +483,7 @@ const RoomView = () => {
       window.removeEventListener("user-updated", handleUserUpdate);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [isHost, playerState.isMp4]);
+  }, [isHost, playerState.isMp4, playerState.isYoutube]);
 
   const handleLogout = () => {
     authUtils.clearAuth();
@@ -417,6 +497,8 @@ const RoomView = () => {
       // Create a set of IDs to fetch: Participants + Host
       const uniqueIds = new Set(participants.map((id) => Number(id)));
       if (hostId) uniqueIds.add(Number(hostId));
+
+      console.log("🔄 Syncing Profiles for IDs:", Array.from(uniqueIds));
 
       if (uniqueIds.size === 0) return;
 
@@ -464,6 +546,40 @@ const RoomView = () => {
       startMedia();
     }
   }, [isHost, localStream]);
+
+  // 🟢 WATCHDOG: Detect if Host Stops Sending Heartbeats (Refresh/Close)
+  useEffect(() => {
+    if (isHost) return; // Host doesn't need to watch themselves
+
+    const checkInterval = setInterval(() => {
+      // Only check if we are actually in a session (YouTube or MP4)
+      if (playerState.isYoutube || playerState.isMp4) {
+        const timeSinceLastHeartbeat = Date.now() - lastHeartbeatReceivedAt.current;
+
+        // If no heartbeat for > 8 seconds (Heartbeat is every 2s, so 8s is plenty buffer)
+        if (timeSinceLastHeartbeat > 4000) {
+          console.warn(`⚠️ Host Heartbeat lost for ${timeSinceLastHeartbeat}ms! Resetting to Waiting Room...`);
+
+          setPlayerState(prev => {
+            // Only reset if actually playing something to avoid infinite loops
+            if (!prev.isYoutube && !prev.isMp4) return prev;
+            return {
+              ...prev,
+              isPlaying: false,
+              isMp4: false,
+              isYoutube: false,
+              youtubeUrl: null,
+              mediaName: null
+            };
+          });
+          // Reset timer so we don't spam
+          lastHeartbeatReceivedAt.current = Date.now();
+        }
+      }
+    }, 2000); // Check every 2 seconds
+
+    return () => clearInterval(checkInterval);
+  }, [isHost, playerState.isYoutube, playerState.isMp4]); // Re-run when mode changes
 
   useEffect(() => {
     if (!authUtils.isAuthenticated()) {
@@ -517,73 +633,98 @@ const RoomView = () => {
         roomCode,
         (msg) => {
           if (msg.type === "HOST_LEFT") setHostLeft(true);
-          // 🟢 Handle SYNC/SYSTEM Messages (Do NOT add to chat)
-          else if (msg.type === "SYNC") {
+          // 🟢 Handle SYNC/SYSTEM Messages (Do NOT add to chat) — robust to casing/numeric enum
+          else if (String(msg.type).toUpperCase() === "SYNC") {
             console.log("🔄 SYNC Signal:", msg.content);
             try {
               const action = JSON.parse(msg.content);
-              if (action.type === "PAUSE" && videoPlayerRef.current) {
-                videoPlayerRef.current.pause();
-              } else if (action.type === "PLAY" && videoPlayerRef.current) {
-                videoPlayerRef.current.play();
-              } else if (action.type === "LOAD") {
-                // 🟢 Handle Media Load (Thumbnail)
+              console.log("SYNC received, action.type:", action?.type);
+              // 🟢 SYNC HANDLER
+              if (action.type === "PAUSE") {
+                console.log("⏸️ SYNC: PAUSE");
+                videoPlayerRef.current?.pause();
+                setPlayerState(prev => ({ ...prev, isPlaying: false }));
+              }
+              else if (action.type === "PLAY") {
+                console.log("▶ SYNC: PLAY");
+                videoPlayerRef.current?.play();
+                setPlayerState(prev => ({ ...prev, isPlaying: true }));
+              }
+              else if (action.type === "LOAD") {
+                console.log("📂 SYNC: LOAD", action.filename);
                 setPlayerState(prev => ({
                   ...prev,
                   isMp4: true,
-                  isYoutube: false, // Ensure YT is off
-                  mediaName: action.filename
+                  isYoutube: false,
+                  mediaName: action.filename,
+                  isPlaying: false // Reset to paused on load
                 }));
-              } else if (action.type === "LOAD_YOUTUBE") {
-                // 🟢 Handle YouTube Load
+              }
+              else if (action.type === "LOAD_YOUTUBE") {
+                console.log("📺 SYNC: LOAD_YOUTUBE", action.url);
+                const url = normalizeYoutubeUrl(action.url) || action.url;
+                if (url) {
+                  setPlayerState(prev => ({
+                    ...prev,
+                    isMp4: false,
+                    isYoutube: true,
+                    youtubeUrl: url,
+                    mediaName: "YouTube Video",
+                    isPlaying: true, // Auto-play on load
+                  }));
+                }
+              }
+              else if (action.type === "STOP") {
+                console.log("⏹️ SYNC: STOP");
                 setPlayerState(prev => ({
                   ...prev,
                   isMp4: false,
-                  isYoutube: true,
-                  youtubeUrl: action.url,
-                  mediaName: "YouTube Video",
-                  isPlaying: true // Auto play on load
+                  isYoutube: false,
+                  youtubeUrl: null,
+                  mediaName: null,
+                  isPlaying: false
                 }));
               } else if (action.type === "HEARTBEAT") {
                 // 🟢 Update Host Time Ref
                 lastHostTimeRef.current = action.time;
+                lastHeartbeatReceivedAt.current = Date.now(); // 🟢 Update timestamp
 
-                // 🟢 Late Joiner / Refresh Logic:
-                // If we don't know it's an MP4 yet, but Host says it is, UPDATE STATE!
-                // Also update isPlaying status if provided
                 setPlayerState(prev => {
-                  // 🟢 Sync YouTube State from Heartbeat
-                  if (!prev.isYoutube && action.isYoutube) {
-                    console.log("⚡ Auto-Syncing YouTube State from Heartbeat");
-                    return {
-                      ...prev,
-                      isMp4: false,
-                      isYoutube: true,
-                      youtubeUrl: action.youtubeUrl,
-                      mediaName: action.mediaName || "YouTube Video",
-                      isPlaying: action.isPlaying ?? true
-                    };
+                  let newState = { ...prev };
+                  let hasChanged = false;
+
+                  // 🟢 FORCE SYNC: If Host says YouTube, IT IS YOUTUBE (unless we are host)
+                  if (!isHost && action.isYoutube && action.youtubeUrl) {
+                    const normalizedUrl = normalizeYoutubeUrl(action.youtubeUrl) || action.youtubeUrl;
+
+                    if (!prev.isYoutube || prev.youtubeUrl !== normalizedUrl) {
+                      console.log("⚡ HEARTBEAT FORCE SYNC: YouTube Mode", normalizedUrl);
+                      newState.isYoutube = true;
+                      newState.isMp4 = false;
+                      newState.youtubeUrl = normalizedUrl;
+                      newState.mediaName = action.mediaName || "YouTube Video";
+                      hasChanged = true;
+                    }
+                  }
+                  // 🟢 FORCE SYNC: If Host says MP4, IT IS MP4
+                  else if (!isHost && action.isMp4) {
+                    if (!prev.isMp4 || prev.mediaName !== action.mediaName) {
+                      console.log("⚡ HEARTBEAT FORCE SYNC: MP4 Mode", action.mediaName);
+                      newState.isMp4 = true;
+                      newState.isYoutube = false;
+                      newState.mediaName = action.mediaName;
+                      hasChanged = true;
+                    }
                   }
 
-                  // 🟢 Sync MP4 State from Heartbeat
-                  if (!prev.isMp4 && action.isMp4) {
-                    console.log("⚡ Auto-Syncing MP4 State from Heartbeat");
-                    return {
-                      ...prev,
-                      isMp4: true,
-                      isYoutube: false,
-                      mediaName: action.mediaName,
-                      isPlaying: action.isPlaying ?? prev.isPlaying
-                    };
+                  // 🟢 SYNC PLAY/PAUSE (Always, for everyone)
+                  if (action.isPlaying !== undefined && action.isPlaying !== prev.isPlaying) {
+                    console.log("⚡ HEARTBEAT FORCE SYNC: isPlaying =", action.isPlaying);
+                    newState.isPlaying = action.isPlaying;
+                    hasChanged = true;
                   }
-                  // Even if already synced, update Play/Pause status
-                  if (prev.isMp4 && action.isPlaying !== undefined && action.isPlaying !== prev.isPlaying) {
-                    return { ...prev, isPlaying: action.isPlaying };
-                  }
-                  if (prev.isYoutube && action.isPlaying !== undefined && action.isPlaying !== prev.isPlaying) {
-                    return { ...prev, isPlaying: action.isPlaying };
-                  }
-                  return prev;
+
+                  return hasChanged ? newState : prev;
                 });
               }
             } catch (e) {
@@ -604,7 +745,10 @@ const RoomView = () => {
             });
           }
         },
-        (users) => setParticipants(users),
+        (users) => {
+          console.log("👥 Socket Participants update:", users);
+          setParticipants(users);
+        },
         (signal) => handleIncomingSignal(signal, localStreamRef.current)
       );
 
@@ -629,6 +773,8 @@ const RoomView = () => {
     };
   }, [roomCode, navigate]);
 
+
+
   if (!user) return null;
 
   return (
@@ -638,6 +784,7 @@ const RoomView = () => {
         user={user}
         onLogout={handleLogout}
         isHost={isHost}
+        disableProfileLink={true} // 🟢 Disable Profile Link in Room to prevent Zombie Rooms
       />
 
       <div className="room-container">
@@ -658,19 +805,26 @@ const RoomView = () => {
         )}
 
         <div className="main-content">
-          <div className="video-section">
+          <div className="video-section" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, backgroundColor: 'black' }}>
             <VideoPlayer
-              key={activeStream ? activeStream.id : playerState.youtubeUrl || "no-stream"}
+              // 🟢 FORCE KEY CHANGE: Ensure remount when switching modes to avoid state stuck
+              key={playerState.isYoutube ? `youtube-${playerState.youtubeUrl}` : (activeStream ? activeStream.id : "no-stream")}
               ref={videoPlayerRef}
               roomCode={roomCode}
-              stream={activeStream}
+              // 🟢 FIX: Only pass stream if MP4 (paused/playing) OR active playback (Screen Share).
+              // If stopped/idle, pass null to force "Waiting" screen.
+              stream={(playerState.isYoutube || (!playerState.isMp4 && !playerState.isPlaying)) ? null : activeStream}
               isHost={isHost}
               mediaName={playerState.mediaName}
               isMp4={playerState.isMp4}
               isYoutube={playerState.isYoutube}
               youtubeUrl={playerState.youtubeUrl}
               isPlaying={playerState.isPlaying} // 🟢 Pass Play State!
-              onPlay={handleParticipantPlay}
+              onPlay={handlePlayerPlay}
+              onPause={handlePlayerPause}
+              // 🟢 AUDIO PROPS
+              muted={isLocalMuted}
+              volume={localVolume}
             />
 
             {/* 🟢 CONTROLS SECTION (For Host AND Participants) */}
@@ -697,6 +851,14 @@ const RoomView = () => {
                   onSkipBack={handleSkipBack}
                   onGoToStart={handleGoToStart}
                   onGoToEnd={handleGoToEnd}
+                  // 🟢 LOCAL AUDIO CONTROLS
+                  isMuted={isLocalMuted}
+                  volume={localVolume}
+                  onToggleMute={() => setIsLocalMuted(prev => !prev)}
+                  onVolumeChange={(val) => {
+                    setLocalVolume(val);
+                    if (val > 0) setIsLocalMuted(false);
+                  }}
                 />
               )}
 
@@ -731,15 +893,12 @@ const RoomView = () => {
             />
           </div>
           <div className="chat-section">
-            {/* Pass profileMap to resolve names in chat bubbles */}
-            <ChatPanel
-              messages={messages}
-              roomCode={roomCode}
-              profileMap={profileMap}
-            />
+            {/* Chat Panel (Right Sidebar) */}
+            <ChatPanel messages={messages} roomCode={roomCode} />
           </div>
         </div>
       </div>
+
     </div>
 
   );

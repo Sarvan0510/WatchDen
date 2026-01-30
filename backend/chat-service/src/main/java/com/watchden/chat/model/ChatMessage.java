@@ -8,7 +8,8 @@ public class ChatMessage {
         JOIN,
         CHAT,
         LEAVE,
-        HOST_LEFT // Added for Host Logic
+        HOST_LEFT,
+        SYNC // Video sync (LOAD, PLAY, PAUSE, LOAD_YOUTUBE, HEARTBEAT) so participants see YouTube
     }
 
     private Type type;
