@@ -89,7 +89,8 @@ public class RoomServiceImplementation implements RoomService {
 		// Prevent duplicate join
 		if (roomParticipantRepository.existsByRoomIdAndUserId(room.getId(), userId)) {
 
-			throw new AlreadyJoinedException("User already joined this room");
+			// throw new AlreadyJoinedException("User already joined this room");
+			return; // Idempotent success
 		}
 
 		// Create participant
@@ -177,12 +178,12 @@ public class RoomServiceImplementation implements RoomService {
 				})
 				.collect(Collectors.toList());
 	}
-	
+
 	@Override
 	public Long getHostIdByRoomId(Long roomId) {
-	    return roomRepository.findById(roomId)
-	            .map(Room::getHostUserId)
-	            .orElseThrow(() -> new RoomNotFoundException("Room not found with ID: " + roomId));
+		return roomRepository.findById(roomId)
+				.map(Room::getHostUserId)
+				.orElseThrow(() -> new RoomNotFoundException("Room not found with ID: " + roomId));
 	}
 
 	// Utility Function

@@ -1,20 +1,142 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import ReactPlayer from "react-player";
 
-const VideoPlayer = ({ roomCode, stream, isHost }) => {
+const VideoPlayer = forwardRef(({ roomCode, stream, isHost, mediaName, isMp4, onPlay }, ref) => {
+  // --- 1. HOOKS & STATE (Must be at the top) ---
   const [url, setUrl] = useState("https://www.youtube.com/watch?v=LXb3EKWsInQ");
   const [playing, setPlaying] = useState(false);
+  const [showOverlay, setShowOverlay] = useState(false);
+
+  const [showPlayOverlay, setShowPlayOverlay] = useState(false);
+
+  // Ref for the native video element
   const videoRef = useRef(null);
+
+  // --- 2. EFFECTS ---
+
+  // Show overlay when mediaName changes, hide after 3s
+  useEffect(() => {
+    if (mediaName) {
+      setShowOverlay(true);
+      const timer = setTimeout(() => setShowOverlay(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [mediaName]);
+
+  // 🟢 Internal Helper for Snap-to-Live
+  const jumpToLiveInternal = () => {
+    const vid = videoRef.current;
+    if (vid && vid.buffered.length > 0) {
+      // Jump to the very end of the buffered range (Live Edge)
+      try {
+        vid.currentTime = vid.buffered.end(vid.buffered.length - 1);
+      } catch (e) {
+        console.log("Jump to live failed", e);
+      }
+    }
+  };
+
+  // Expose methods to Parent via Ref
+  useImperativeHandle(ref, () => ({
+    pause: () => {
+      if (videoRef.current) videoRef.current.pause();
+    },
+    play: () => {
+      if (videoRef.current) videoRef.current.play().catch(e => console.log("Play interrupted", e));
+    },
+    seek: (time) => {
+      if (videoRef.current) videoRef.current.currentTime = time;
+    },
+    jumpToLive: jumpToLiveInternal // Use the internal function
+  }));
+
+  const [isValidStream, setIsValidStream] = useState(true);
 
   // Auto-play WebRTC stream when it changes
   useEffect(() => {
-    if (stream && videoRef.current) {
-      videoRef.current.srcObject = stream;
+    const vid = videoRef.current;
+
+    // 🟢 Reset valid state to TRUE whenever the stream reference updates
+    console.log("🎥 VideoPlayer Effect: Stream changed:", stream?.id);
+    setIsValidStream(!!stream);
+
+    if (stream) {
+      const track = stream.getVideoTracks()[0];
+
+      const handleTrackEnded = () => {
+        console.log("❌ Stream Track Ended");
+        setIsValidStream(false);
+      };
+
+      if (track) {
+        track.addEventListener("ended", handleTrackEnded);
+
+        // Check immediate state
+        if (track.readyState === "ended") {
+          console.warn("⚠️ Stream Track is already ENDED on mount");
+          setIsValidStream(false);
+        } else {
+          setIsValidStream(true); // Confirm it is valid
+        }
+      }
+
+      console.log("🎥 Attaching Stream:", stream.id);
+      if (vid) {
+        vid.srcObject = stream;
+        // Try to play. If browser blocks it (Autoplay Policy), show the "Click to Play" button.
+        vid.play().catch(e => {
+          console.error("Autoplay failed", e);
+          if (e.name === "NotAllowedError") {
+            setShowPlayOverlay(true);
+          }
+        });
+      }
+
+      return () => {
+        if (track) {
+          track.removeEventListener("ended", handleTrackEnded);
+        }
+      };
     }
   }, [stream]);
 
+  // --- 3. RENDER ---
+
+  // 🟢 Waiting for Stream / Stream Disconnected
+  if (isMp4 && (!stream || !isValidStream)) {
+    return (
+      <div className="player-wrapper" style={styles.wrapper}>
+        {/* Blurred Background with Message */}
+        <div style={{
+          ...styles.playerContainer,
+          color: 'white',
+          backgroundColor: '#000',
+          backgroundImage: 'url(/assets/placeholder_blur.jpg)', // Optional: You could use a generic poster if available
+          backgroundSize: 'cover'
+        }}>
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            backdropFilter: 'blur(15px)',
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '15px'
+          }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', textAlign: 'center' }}>
+              🚫 Video Removed by Host
+            </h2>
+            <p style={{ color: '#94a3b8' }}>Waiting for host to resume...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // If a WebRTC stream exists (Host is streaming), show the VIDEO tag
-  if (stream) {
+  if (stream && isValidStream) {
     return (
       <div className="player-wrapper" style={styles.wrapper}>
         <div style={styles.playerContainer}>
@@ -24,13 +146,40 @@ const VideoPlayer = ({ roomCode, stream, isHost }) => {
             autoPlay
             playsInline
             // 🟢 ENABLE CONTROLS FOR VIEWERS
-            // Viewers get controls (Play/Pause/Vol), Host gets none (they use HostControls)
-            controls={!isHost}
+            // Viewers get controls (Play/Pause/Vol) ONLY if it's a Movie, not for Camera
+            controls={!isHost && isMp4}
+            onPlay={onPlay} // Attach onPlay listener
             muted={isHost} // Host mutes themselves to avoid echo
             style={{ width: "100%", height: "100%", objectFit: "contain" }}
           />
           {/* Overlay Badge */}
           <div style={styles.liveBadge}>🔴 LIVE</div>
+
+          {/* 🟢 Click to Play Overlay (Fixes NotAllowedError) */}
+          {showPlayOverlay && (
+            <div style={styles.playOverlay}>
+              <button
+                style={styles.bigPlayBtn}
+                onClick={() => {
+                  if (videoRef.current) {
+                    videoRef.current.play();
+                    setShowPlayOverlay(false);
+                    // Also jump to live to ensure sync
+                    jumpToLiveInternal();
+                  }
+                }}
+              >
+                ▶ Click to Watch
+              </button>
+            </div>
+          )}
+
+          {/* 🟢 Media Name Overlay (Thumbnail effect) */}
+          {showOverlay && mediaName && (
+            <div style={styles.mediaOverlay}>
+              🎥 Playing: {mediaName}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -72,7 +221,7 @@ const VideoPlayer = ({ roomCode, stream, isHost }) => {
       </div>
     </div>
   );
-};
+});
 
 const styles = {
   wrapper: {
@@ -154,6 +303,42 @@ const styles = {
     borderRadius: "8px",
     fontWeight: "700",
     cursor: "pointer",
+  },
+  mediaOverlay: {
+    position: "absolute",
+    bottom: "20px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    backgroundColor: "rgba(0,0,0,0.7)",
+    color: "white",
+    padding: "8px 16px",
+    borderRadius: "20px",
+    fontSize: "0.9rem",
+    pointerEvents: "none",
+  },
+  playOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 20,
+  },
+  bigPlayBtn: {
+    padding: "16px 32px",
+    fontSize: "1.5rem",
+    backgroundColor: "#6366f1",
+    color: "white",
+    border: "none",
+    borderRadius: "12px",
+    cursor: "pointer",
+    fontWeight: "bold",
+    boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+    transition: "transform 0.2s",
   },
 };
 

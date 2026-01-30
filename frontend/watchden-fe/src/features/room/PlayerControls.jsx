@@ -11,6 +11,7 @@ const PlayerControls = ({
   onSkipBack,
   onGoToStart,
   onGoToEnd,
+  isHost, // 🟢 Prop to control visibility
 }) => {
   // Helper to format time (e.g., 65s -> "1:05")
   const formatTime = (seconds) => {
@@ -22,43 +23,54 @@ const PlayerControls = ({
 
   return (
     <div style={styles.container}>
-      {/* 🟢 SEEK BAR ROW */}
-      <div style={styles.seekContainer}>
-        <span style={styles.timeText}>{formatTime(currentTime)}</span>
-        <input
-          type="range"
-          min="0"
-          max={duration || 100}
-          value={currentTime}
-          onChange={(e) => onSeek(Number(e.target.value))}
-          style={styles.seekBar}
-        />
-        <span style={styles.timeText}>{formatTime(duration)}</span>
-      </div>
+      {/* 🟢 SEEK BAR ROW (HOST ONLY) */}
+      {isHost && (
+        <div style={styles.seekContainer}>
+          <span style={styles.timeText}>{formatTime(currentTime)}</span>
+          <input
+            type="range"
+            min="0"
+            max={duration || 100}
+            value={currentTime}
+            onChange={(e) => onSeek(Number(e.target.value))}
+            style={styles.seekBar}
+          />
+          <span style={styles.timeText}>{formatTime(duration)}</span>
+        </div>
+      )}
 
       {/* 🟢 BUTTONS ROW */}
       <div style={styles.controlsRow}>
-        <button style={styles.btn} onClick={onGoToStart} title="Go to Start">
-          |&lt;
-        </button>
-        <button style={styles.btn} onClick={onSkipBack} title="-10s">
-          ⏪
-        </button>
+        {isHost && (
+          <>
+            <button style={styles.btn} onClick={onGoToStart} title="Go to Start">
+              |&lt;
+            </button>
+            <button style={styles.btn} onClick={onSkipBack} title="-10s">
+              ⏪
+            </button>
 
-        <button style={styles.stopBtn} onClick={onStop} title="Stop">
-          ⏹
-        </button>
+            <button style={styles.stopBtn} onClick={onStop} title="Stop">
+              ⏹
+            </button>
+          </>
+        )}
 
+        {/* Play/Pause is for Everyone */}
         <button style={styles.playBtn} onClick={onPlayPause}>
           {isPlaying ? "⏸" : "▶"}
         </button>
 
-        <button style={styles.btn} onClick={onSkipForward} title="+10s">
-          ⏩
-        </button>
-        <button style={styles.btn} onClick={onGoToEnd} title="Go to End">
-          &gt;|
-        </button>
+        {isHost && (
+          <>
+            <button style={styles.btn} onClick={onSkipForward} title="+10s">
+              ⏩
+            </button>
+            <button style={styles.btn} onClick={onGoToEnd} title="Go to End">
+              &gt;|
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

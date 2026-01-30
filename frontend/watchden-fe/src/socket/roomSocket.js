@@ -19,7 +19,7 @@ export const connectSocket = (
   // Ensure your Gateway forwards "/ws" to the Chat Service
   const socket = new SockJS("http://localhost:8083/ws");
   stompClient = Stomp.over(socket);
-  stompClient.debug = () => {}; // Turn off debug logs for cleaner console
+  stompClient.debug = () => { }; // Turn off debug logs for cleaner console
 
   stompClient.connect(
     {},
@@ -40,7 +40,7 @@ export const connectSocket = (
       stompClient.subscribe(`/topic/room/${roomId}/signal`, (payload) => {
         if (onSignalReceived) {
           const signal = JSON.parse(payload.body);
-          const currentUser = JSON.parse(localStorage.getItem("user"));
+          const currentUser = JSON.parse(sessionStorage.getItem("user"));
 
           // 🛑 Filter out my own signals so I don't process my own Offer/Answer
           if (currentUser && signal.sender !== currentUser.username) {
@@ -50,7 +50,7 @@ export const connectSocket = (
       });
 
       // 4. Send JOIN Signal (for Chat Presence)
-      const user = JSON.parse(localStorage.getItem("user"));
+      const user = JSON.parse(sessionStorage.getItem("user"));
       if (user) {
         stompClient.send(
           `/app/chat/${roomId}/join`,
@@ -70,7 +70,7 @@ export const connectSocket = (
 // 🟢 New Function: Send WebRTC Signals (Offer, Answer, ICE)
 export const sendSignal = (roomId, type, payload) => {
   if (stompClient && stompClient.connected) {
-    const user = JSON.parse(localStorage.getItem("user"));
+    const user = JSON.parse(sessionStorage.getItem("user"));
 
     // 🛡️ Safety Check: Ensure username exists
     if (!user || !user.username) {
@@ -102,13 +102,14 @@ export const sendSignal = (roomId, type, payload) => {
   }
 };
 
-export const sendMessage = (roomId, messageContent) => {
+// Updated: sendMessage now accepts optional typeOverride
+export const sendMessage = (roomId, messageContent, typeOverride = "CHAT") => {
   if (stompClient && stompClient.connected) {
     const user = JSON.parse(sessionStorage.getItem("user"));
     const chatMessage = {
       sender: user.username,
       content: messageContent,
-      type: "CHAT",
+      type: typeOverride,
     };
 
     stompClient.send(

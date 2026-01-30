@@ -69,20 +69,32 @@ public class UserProfileController {
     public ResponseEntity<org.springframework.core.io.Resource> getAvatar(@PathVariable String filename) {
         try {
             String currentDir = System.getProperty("user.dir");
-            java.nio.file.Path backendDir = java.nio.file.Paths.get(currentDir).getParent();
-            java.nio.file.Path filePath = backendDir.resolve("uploads").resolve(filename);
 
-            org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(
-                    filePath.toUri());
+            // 🟢 Strategy 1: Shared Backend Folder (../uploads)
+            java.nio.file.Path sharedPath = java.nio.file.Paths.get(currentDir).getParent().resolve("uploads")
+                    .resolve(filename);
 
-            System.out.println("📂 Serving file from: " + filePath.toAbsolutePath()); // Debug
+            // 🟢 Strategy 2: Local Service Folder (./uploads)
+            java.nio.file.Path localPath = java.nio.file.Paths.get(currentDir).resolve("uploads").resolve(filename);
+
+            org.springframework.core.io.Resource resource;
+
+            if (java.nio.file.Files.exists(sharedPath)) {
+                resource = new org.springframework.core.io.UrlResource(sharedPath.toUri());
+                System.out.println("📂 Serving from SHARED: " + sharedPath);
+            } else if (java.nio.file.Files.exists(localPath)) {
+                resource = new org.springframework.core.io.UrlResource(localPath.toUri());
+                System.out.println("📂 Serving from LOCAL: " + localPath);
+            } else {
+                System.out.println("❌ File not found in SHARED or LOCAL paths");
+                return ResponseEntity.notFound().build();
+            }
 
             if (resource.exists() && resource.isReadable()) {
                 return ResponseEntity.ok()
                         .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "image/jpeg")
                         .body(resource);
             } else {
-                System.out.println("❌ File not found or not readable");
                 return ResponseEntity.notFound().build();
             }
         } catch (Exception e) {
