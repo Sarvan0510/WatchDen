@@ -1,16 +1,23 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import ReactPlayer from "react-player";
 
-const VideoPlayer = forwardRef(({ roomCode, stream, isHost, mediaName, isMp4, onPlay }, ref) => {
+const VideoPlayer = forwardRef(({ roomCode, stream, isHost, mediaName, isMp4, isYoutube, youtubeUrl, isPlaying, onPlay }, ref) => {
   // --- 1. HOOKS & STATE (Must be at the top) ---
-  const [url, setUrl] = useState("https://www.youtube.com/watch?v=LXb3EKWsInQ");
-  const [playing, setPlaying] = useState(false);
-  const [showOverlay, setShowOverlay] = useState(false);
+  console.log("🎥 VideoPlayer Render:", { isYoutube, youtubeUrl, isMp4, streamId: stream?.id, isPlaying });
+  const [playing, setPlaying] = useState(isPlaying || false); // Initialize from prop
 
+  // Sync prop changes to local state
+  useEffect(() => {
+    setPlaying(isPlaying);
+  }, [isPlaying]);
+
+  const [showOverlay, setShowOverlay] = useState(false);
   const [showPlayOverlay, setShowPlayOverlay] = useState(false);
 
   // Ref for the native video element
   const videoRef = useRef(null);
+  // Ref for ReactPlayer (YouTube)
+  const reactPlayerRef = useRef(null);
 
   // --- 2. EFFECTS ---
 
@@ -39,21 +46,38 @@ const VideoPlayer = forwardRef(({ roomCode, stream, isHost, mediaName, isMp4, on
   // Expose methods to Parent via Ref
   useImperativeHandle(ref, () => ({
     pause: () => {
-      if (videoRef.current) videoRef.current.pause();
+      if (isYoutube && reactPlayerRef.current) {
+        setPlaying(false); // Update ReactPlayer playing prop proxy
+      } else if (videoRef.current) {
+        videoRef.current.pause();
+      }
     },
     play: () => {
-      if (videoRef.current) videoRef.current.play().catch(e => console.log("Play interrupted", e));
+      if (isYoutube && reactPlayerRef.current) {
+        setPlaying(true);
+      } else if (videoRef.current) {
+        videoRef.current.play().catch(e => console.log("Play interrupted", e));
+      }
     },
     seek: (time) => {
-      if (videoRef.current) videoRef.current.currentTime = time;
+      if (isYoutube && reactPlayerRef.current) {
+        reactPlayerRef.current.seekTo(time, "seconds");
+      } else if (videoRef.current) {
+        videoRef.current.currentTime = time;
+      }
     },
-    jumpToLive: jumpToLiveInternal // Use the internal function
+    // YouTube doesn't really have "Jump to Live" in this context unless it's a livestream, 
+    // but for MP4 we use the internal helper.
+    jumpToLive: jumpToLiveInternal
   }));
 
   const [isValidStream, setIsValidStream] = useState(true);
 
   // Auto-play WebRTC stream when it changes
   useEffect(() => {
+    // Only run this logic if we are NOT in YouTube mode
+    if (isYoutube) return;
+
     const vid = videoRef.current;
 
     // 🟢 Reset valid state to TRUE whenever the stream reference updates
@@ -83,26 +107,67 @@ const VideoPlayer = forwardRef(({ roomCode, stream, isHost, mediaName, isMp4, on
       console.log("🎥 Attaching Stream:", stream.id);
       if (vid) {
         vid.srcObject = stream;
-        // Try to play. If browser blocks it (Autoplay Policy), show the "Click to Play" button.
-        vid.play().catch(e => {
-          console.error("Autoplay failed", e);
-          if (e.name === "NotAllowedError") {
-            setShowPlayOverlay(true);
-          }
-        });
+
+        // 🟢 FIX: Only play if element is actually in the DOM to avoid AbortError on unmount
+        if (vid.isConnected) {
+          vid.play().catch(e => {
+            // Ignore AbortError (interrupted by unmount/load)
+            if (e.name === "AbortError" || e.message.includes("interrupted")) return;
+
+            console.error("Autoplay failed", e);
+            if (e.name === "NotAllowedError") {
+              setShowPlayOverlay(true);
+            }
+          });
+        }
       }
 
       return () => {
         if (track) {
           track.removeEventListener("ended", handleTrackEnded);
         }
+        // 🟢 Cleanup: Stop video to prevent AbortErrors when switching to YouTube
+        if (vid) {
+          vid.pause();
+          vid.removeAttribute('src'); // Helper to clean up
+          vid.load(); // Reset
+        }
       };
     }
-  }, [stream]);
+  }, [stream, isYoutube]);
 
   // --- 3. RENDER ---
 
-  // 🟢 Waiting for Stream / Stream Disconnected
+  // 🟢 1. YOUTUBE PLAYER MODE
+  if (isYoutube && youtubeUrl) {
+    return (
+      <div className="player-wrapper" style={styles.wrapper}>
+        <div style={styles.playerContainer}>
+          <ReactPlayer
+            ref={reactPlayerRef}
+            url={youtubeUrl}
+            playing={playing}
+            controls={true} // 🟢 FORCE CONTROLS ON for debugging (and to allow unblock)
+            width="100%"
+            height="100%"
+            onError={(e) => console.error("YouTube Player Error:", e)}
+            onReady={() => console.log("✅ YouTube Player Ready")}
+            onStart={() => console.log("▶ YouTube Player Started")}
+            onBuffer={() => console.log("⏳ YouTube Player Buffering")}
+            onProgress={(p) => {
+              // Optional: could send progress back to host for sync checks
+            }}
+          />
+        </div>
+        {/* Overlay Badge for YouTube */}
+        <div style={{ ...styles.liveBadge, backgroundColor: "#FF0000" }}>▶ YouTube Mode</div>
+      </div>
+    );
+  }
+
+
+  // 🟢 2. MP4 / STREAM PLAYER MODE
+  // Waiting for Stream / Stream Disconnected
   if (isMp4 && (!stream || !isValidStream)) {
     return (
       <div className="player-wrapper" style={styles.wrapper}>
@@ -185,39 +250,11 @@ const VideoPlayer = forwardRef(({ roomCode, stream, isHost, mediaName, isMp4, on
     );
   }
 
-  // Otherwise, show standard YouTube Player
+  // Default: Empty / Placeholder
   return (
     <div className="player-wrapper" style={styles.wrapper}>
-      <div style={styles.playerContainer}>
-        <ReactPlayer
-          url={url}
-          playing={playing}
-          controls={true}
-          width="100%"
-          height="100%"
-          onPlay={() => setPlaying(true)}
-          onPause={() => setPlaying(false)}
-        />
-      </div>
-
-      {/* Control Bar (Local YouTube Control) */}
-      <div className="video-controls" style={styles.controlsBar}>
-        <div style={styles.inputWrapper}>
-          <span style={styles.inputIcon}>🔗</span>
-          <input
-            type="text"
-            placeholder="Paste YouTube URL..."
-            value={url}
-            style={styles.input}
-            onChange={(e) => setUrl(e.target.value)}
-          />
-        </div>
-        <button
-          onClick={() => setPlaying(!playing)}
-          style={playing ? styles.pauseBtn : styles.playBtn}
-        >
-          {playing ? "⏸ Pause" : "▶ Play"}
-        </button>
+      <div style={{ ...styles.playerContainer, backgroundColor: "#1e293b" }}>
+        <p style={{ color: "#94a3b8" }}>Waiting for Host to start content...</p>
       </div>
     </div>
   );
@@ -258,51 +295,6 @@ const styles = {
     fontWeight: "bold",
     boxShadow: "0 2px 10px rgba(239, 68, 68, 0.5)",
     pointerEvents: "none", // Let clicks pass through to video
-  },
-  controlsBar: {
-    padding: "16px 20px",
-    backgroundColor: "#1e293b",
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    borderTop: "1px solid #334155",
-  },
-  inputWrapper: {
-    flex: 1,
-    display: "flex",
-    alignItems: "center",
-    backgroundColor: "#0f172a",
-    borderRadius: "8px",
-    padding: "4px 12px",
-    border: "1px solid #334155",
-  },
-  inputIcon: { fontSize: "0.9rem", marginRight: "8px", opacity: 0.6 },
-  input: {
-    width: "100%",
-    padding: "10px 0",
-    backgroundColor: "transparent",
-    border: "none",
-    color: "white",
-    fontSize: "0.9rem",
-    outline: "none",
-  },
-  playBtn: {
-    padding: "10px 20px",
-    backgroundColor: "#6366f1",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontWeight: "700",
-    cursor: "pointer",
-  },
-  pauseBtn: {
-    padding: "10px 20px",
-    backgroundColor: "#334155",
-    color: "#cbd5e1",
-    border: "1px solid #475569",
-    borderRadius: "8px",
-    fontWeight: "700",
-    cursor: "pointer",
   },
   mediaOverlay: {
     position: "absolute",

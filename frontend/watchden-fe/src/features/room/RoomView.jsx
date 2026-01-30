@@ -74,10 +74,10 @@ const RoomView = () => {
   };
 
   // 🟢 HOST: Send Heartbeat (Time Sync + State) Every 2s
-  // 🟢 HOST: Send Heartbeat (Time Sync + State) Every 2s
   useEffect(() => {
     let interval;
-    if (isHost && playerState.isMp4) {
+    // 🟢 Enable Heartbeat for MP4 OR YouTube
+    if (isHost && (playerState.isMp4 || playerState.isYoutube)) {
       interval = setInterval(() => {
         const currentTime = mp4VideoRef.current?.currentTime || 0;
         import("../../socket/roomSocket").then(({ sendMessage }) => {
@@ -85,16 +85,18 @@ const RoomView = () => {
           const payload = {
             type: "HEARTBEAT",
             time: currentTime,
-            isMp4: true,
+            isMp4: playerState.isMp4,
+            isYoutube: playerState.isYoutube, // 🟢 Send YouTube flag
+            youtubeUrl: playerState.youtubeUrl, // 🟢 Send URL
             mediaName: playerState.mediaName,
-            isPlaying: playerState.isPlaying // 🟢 Send Play Status too
+            isPlaying: playerState.isPlaying
           };
           sendMessage(roomCode, JSON.stringify(payload), "SYNC");
         });
       }, 2000);
     }
     return () => clearInterval(interval);
-  }, [isHost, playerState.isMp4, playerState.mediaName, playerState.isPlaying, roomCode]);
+  }, [isHost, playerState.isMp4, playerState.isYoutube, playerState.mediaName, playerState.isPlaying, playerState.youtubeUrl, roomCode]);
 
   // 🟢 FIX 1: Robust Stream Selection (The "Safety Net")
   const hostProfile = profileMap[hostId];
@@ -308,13 +310,49 @@ const RoomView = () => {
         type: "SCREEN",
         source: "Screen",
       });
+      await streamApi.startStream({
+        roomId: numericRoomId,
+        userId: user.id,
+        type: "SCREEN",
+        source: "Screen",
+      });
     } catch (e) {
       console.error("Screen Share Error", e);
     }
   };
 
+  // 🟢 NEW: YouTube Handler
+  const handleStartYoutube = (url) => {
+    if (!isHost || !url) return;
+
+    // Stop any existing stream
+    handleStopScreen();
+
+    // Update Local State
+    setPlayerState({
+      isPlaying: true,  // Auto-play
+      isMp4: false,
+      isYoutube: true,
+      currentTime: 0,
+      duration: 0,
+      mediaName: "YouTube Video",
+      youtubeUrl: url
+    });
+
+    // Broadcast Signal
+    import("../../socket/roomSocket").then(({ sendMessage }) => {
+      sendMessage(roomCode, JSON.stringify({
+        type: "LOAD_YOUTUBE",
+        url: url
+      }), "SYNC");
+    });
+  };
+
   const handleStopScreen = async () => {
     if (!isHost) return;
+
+    // 🟢 Fix 500 Error: Check if we actually HAVE a stream to stop before calling backend
+    const hasActiveStream = !!screenStreamRef.current || !!mp4VideoRef.current;
 
     if (screenStreamRef.current) {
       screenStreamRef.current.getTracks().forEach((t) => t.stop());
@@ -335,7 +373,13 @@ const RoomView = () => {
     localStreamRef.current = camStream;
     replaceVideoTrack(camStream);
 
-    await streamApi.stopStream({ roomId: roomCode, userId: user.id });
+    if (hasActiveStream) {
+      try {
+        await streamApi.stopStream({ roomId: roomCode, userId: user.id });
+      } catch (e) {
+        console.warn("Stop stream API failed (ignoring):", e);
+      }
+    }
   };
 
   // --- EFFECTS ---
@@ -487,7 +531,18 @@ const RoomView = () => {
                 setPlayerState(prev => ({
                   ...prev,
                   isMp4: true,
+                  isYoutube: false, // Ensure YT is off
                   mediaName: action.filename
+                }));
+              } else if (action.type === "LOAD_YOUTUBE") {
+                // 🟢 Handle YouTube Load
+                setPlayerState(prev => ({
+                  ...prev,
+                  isMp4: false,
+                  isYoutube: true,
+                  youtubeUrl: action.url,
+                  mediaName: "YouTube Video",
+                  isPlaying: true // Auto play on load
                 }));
               } else if (action.type === "HEARTBEAT") {
                 // 🟢 Update Host Time Ref
@@ -497,18 +552,35 @@ const RoomView = () => {
                 // If we don't know it's an MP4 yet, but Host says it is, UPDATE STATE!
                 // Also update isPlaying status if provided
                 setPlayerState(prev => {
+                  // 🟢 Sync YouTube State from Heartbeat
+                  if (!prev.isYoutube && action.isYoutube) {
+                    console.log("⚡ Auto-Syncing YouTube State from Heartbeat");
+                    return {
+                      ...prev,
+                      isMp4: false,
+                      isYoutube: true,
+                      youtubeUrl: action.youtubeUrl,
+                      mediaName: action.mediaName || "YouTube Video",
+                      isPlaying: action.isPlaying ?? true
+                    };
+                  }
+
+                  // 🟢 Sync MP4 State from Heartbeat
                   if (!prev.isMp4 && action.isMp4) {
-                    console.log("⚡ Auto-Syncing State from Heartbeat");
+                    console.log("⚡ Auto-Syncing MP4 State from Heartbeat");
                     return {
                       ...prev,
                       isMp4: true,
+                      isYoutube: false,
                       mediaName: action.mediaName,
                       isPlaying: action.isPlaying ?? prev.isPlaying
                     };
                   }
-                  // Even if already MP4, sync Play/Pause status occasionally? 
-                  // Let's rely on event stream for main sync, but this is a backup.
+                  // Even if already synced, update Play/Pause status
                   if (prev.isMp4 && action.isPlaying !== undefined && action.isPlaying !== prev.isPlaying) {
+                    return { ...prev, isPlaying: action.isPlaying };
+                  }
+                  if (prev.isYoutube && action.isPlaying !== undefined && action.isPlaying !== prev.isPlaying) {
                     return { ...prev, isPlaying: action.isPlaying };
                   }
                   return prev;
@@ -520,7 +592,16 @@ const RoomView = () => {
           }
           // Only add actual CHAT messages to UI
           else if (msg.type === "CHAT") {
-            setMessages((prev) => [...prev, msg]);
+            setMessages((prev) => {
+              // 🟢 FIX: Deduplicate Messages (Prevent "Double Text" on Join)
+              const isDuplicate = prev.some(m =>
+                (m.id && m.id === msg.id) ||
+                (m.sender === msg.sender && m.content === msg.content && Math.abs(new Date(m.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 1000)
+              );
+
+              if (isDuplicate) return prev;
+              return [...prev, msg];
+            });
           }
         },
         (users) => setParticipants(users),
@@ -579,19 +660,22 @@ const RoomView = () => {
         <div className="main-content">
           <div className="video-section">
             <VideoPlayer
-              key={activeStream ? activeStream.id : "no-stream"}
+              key={activeStream ? activeStream.id : playerState.youtubeUrl || "no-stream"}
               ref={videoPlayerRef}
               roomCode={roomCode}
               stream={activeStream}
               isHost={isHost}
               mediaName={playerState.mediaName}
               isMp4={playerState.isMp4}
+              isYoutube={playerState.isYoutube}
+              youtubeUrl={playerState.youtubeUrl}
+              isPlaying={playerState.isPlaying} // 🟢 Pass Play State!
               onPlay={handleParticipantPlay}
             />
 
             {/* 🟢 CONTROLS SECTION (For Host AND Participants) */}
             <div style={styles.controlsSection}>
-              {playerState.isMp4 && (
+              {(playerState.isMp4 || playerState.isYoutube) && (
                 <PlayerControls
                   isPlaying={playerState.isPlaying}
                   currentTime={playerState.currentTime}
@@ -622,6 +706,7 @@ const RoomView = () => {
                     onStartMp4={handleStartMp4}
                     onStartScreen={handleStartScreen}
                     onStopScreen={handleStopScreen}
+                    onStartYoutube={handleStartYoutube}
                     fileInputRef={fileInputRef}
                   />
                   <MediaControls

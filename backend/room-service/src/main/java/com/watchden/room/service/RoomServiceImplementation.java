@@ -75,8 +75,20 @@ public class RoomServiceImplementation implements RoomService {
 		}
 
 		// Find room
-		Room room = roomRepository.findByRoomCodeWithLock(roomCode)
-				.orElseThrow(() -> new RoomNotFoundException("Room not found with code: " + roomCode));
+		// 1. Try to find with LOCK (Strict Mode)
+		// 2. If valid locking fails (phantom read), fallback to standard read.
+		// Fixed Race Condition scenario and first time room creation issue
+		Room room;
+		try {
+			room = roomRepository.findByRoomCodeWithLock(roomCode)
+					.orElseThrow(() -> new RoomNotFoundException("Room not found (Lock check)"));
+		} catch (RoomNotFoundException e) {
+			// Fallback to non-locking read if lock missed the row
+			// This preserves availability for the edge case where the transaction just
+			// committed.
+			room = roomRepository.findByRoomCode(roomCode)
+					.orElseThrow(() -> new RoomNotFoundException("Room not found with code: " + roomCode));
+		}
 
 		// Check Room Capacity
 		long currentParticipants = roomParticipantRepository.countByRoomId(room.getId());

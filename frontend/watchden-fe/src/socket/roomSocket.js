@@ -10,16 +10,17 @@ export const connectSocket = (
   onUserJoined,
   onSignalReceived
 ) => {
-  if (stompClient && stompClient.connected) {
-    // If we are already connected to this room, don't reconnect
+  // 🟢 FIX: Prevent duplicate connections during React Strict Mode verify
+  // If stompClient exists (even if connecting), do not create a new one.
+  if (stompClient) {
+    console.log("⚠️ WebSocket connection already active or pending.");
     return;
   }
 
   // 🟢 Point this to your API Gateway (8080) or Chat Service (8082)
-  // Ensure your Gateway forwards "/ws" to the Chat Service
   const socket = new SockJS("http://localhost:8083/ws");
   stompClient = Stomp.over(socket);
-  stompClient.debug = () => { }; // Turn off debug logs for cleaner console
+  stompClient.debug = () => { };
 
   stompClient.connect(
     {},
@@ -63,7 +64,11 @@ export const connectSocket = (
         );
       }
     },
-    (error) => console.log("Socket error:", error)
+    (error) => {
+      console.log("Socket error:", error);
+      // Reset so we can retry later
+      stompClient = null;
+    }
   );
 };
 
