@@ -8,7 +8,6 @@ import React, {
 import ReactPlayer from "react-player";
 
 /* --- Icons --- */
-
 const FullscreenIcon = () => (
   <svg height="100%" version="1.1" viewBox="0 0 36 36" width="100%">
     <path
@@ -46,8 +45,8 @@ const VideoPlayer = forwardRef(
     },
     ref
   ) => {
-    // --- State Management ---
-    const [playing, setPlaying] = useState(false);
+    // --- State ---
+    const [playing, setPlaying] = useState(isPlaying);
     const [showOverlay, setShowOverlay] = useState(false);
     const [showPlayOverlay, setShowPlayOverlay] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -58,14 +57,14 @@ const VideoPlayer = forwardRef(
     const reactPlayerRef = useRef(null);
     const playerWrapperRef = useRef(null);
 
-    // --- Synchronization Effects ---
+    // 🟢 FIX: Track time locally to avoid calling broken ref methods
+    const currentTimeRef = useRef(0);
 
-    // Synchronize local playing state with the parent prop
+    // --- Synchronization ---
     useEffect(() => {
       setPlaying(isPlaying);
     }, [isPlaying]);
 
-    // Synchronize volume and mute state for the native video element
     useEffect(() => {
       if (videoRef.current) {
         videoRef.current.volume = volume;
@@ -73,7 +72,6 @@ const VideoPlayer = forwardRef(
       }
     }, [volume, muted]);
 
-    // Display media name overlay briefly when the content changes
     useEffect(() => {
       if (mediaName) {
         setShowOverlay(true);
@@ -82,8 +80,7 @@ const VideoPlayer = forwardRef(
       }
     }, [mediaName]);
 
-    // --- Helper Functions ---
-
+    // --- Helpers ---
     const toggleFullscreen = () => {
       if (!document.fullscreenElement) {
         playerWrapperRef.current
@@ -96,7 +93,6 @@ const VideoPlayer = forwardRef(
       }
     };
 
-    // Listen for fullscreen changes (e.g., user pressing Escape)
     useEffect(() => {
       const handleFsChange = () =>
         setIsFullscreen(!!document.fullscreenElement);
@@ -105,8 +101,18 @@ const VideoPlayer = forwardRef(
         document.removeEventListener("fullscreenchange", handleFsChange);
     }, []);
 
-    // Jumps to the latest buffered frame. Useful for syncing participants to a live stream.
     const jumpToLiveInternal = () => {
+      if (isYoutube && reactPlayerRef.current) {
+        // Only try to seek if the method actually exists (safety check)
+        if (typeof reactPlayerRef.current.seekTo === "function") {
+          const duration = reactPlayerRef.current.getDuration();
+          if (duration) {
+            reactPlayerRef.current.seekTo(duration - 1, "seconds");
+          }
+        }
+        return;
+      }
+
       const vid = videoRef.current;
       if (vid && vid.buffered.length > 0) {
         try {
@@ -117,21 +123,42 @@ const VideoPlayer = forwardRef(
       }
     };
 
-    // --- Imperative Handle (Expose methods to Parent) ---
-    useImperativeHandle(ref, () => ({
-      pause: () => setPlaying(false),
-      play: () => setPlaying(true),
-      seek: (time) => {
-        if (isYoutube && reactPlayerRef.current) {
-          reactPlayerRef.current.seekTo(time, "seconds");
-        } else if (videoRef.current) {
-          videoRef.current.currentTime = time;
-        }
-      },
-      jumpToLive: jumpToLiveInternal,
-    }));
+    // --- Imperative Handle (Command Center) ---
+    useImperativeHandle(
+      ref,
+      () => ({
+        pause: () => setPlaying(false),
+        play: () => setPlaying(true),
+        seek: (time) => {
+          if (isYoutube) {
+            // Safety check for seekTo
+            if (
+              reactPlayerRef.current &&
+              typeof reactPlayerRef.current.seekTo === "function"
+            ) {
+              reactPlayerRef.current.seekTo(time, "seconds");
+            }
+          } else if (videoRef.current) {
+            videoRef.current.currentTime = time;
+          }
+        },
+        jumpToLive: jumpToLiveInternal,
 
-    // --- Stream Autoplay Logic ---
+        // 🟢 FIX: Return locally tracked time instead of calling ref method
+        getCurrentTime: () => {
+          if (isYoutube) {
+            return currentTimeRef.current;
+          }
+          if (videoRef.current) {
+            return videoRef.current.currentTime;
+          }
+          return 0;
+        },
+      }),
+      [isYoutube, isMp4]
+    );
+
+    // --- Stream Autoplay ---
     useEffect(() => {
       if (isYoutube) return;
       setIsValidStream(!!stream);
@@ -139,12 +166,8 @@ const VideoPlayer = forwardRef(
       const vid = videoRef.current;
       if (stream && vid) {
         vid.srcObject = stream;
-
-        // Ensure the video element is connected to the DOM before attempting playback
         if (vid.isConnected) {
           vid.play().catch((e) => {
-            console.error("Autoplay failed:", e);
-            // If the browser blocks audio/autoplay, show the Click-to-Play overlay
             if (e.name === "NotAllowedError") setShowPlayOverlay(true);
           });
         }
@@ -153,11 +176,10 @@ const VideoPlayer = forwardRef(
 
     // --- Render Logic ---
 
-    // 1. YouTube Player Mode
-    // ReactPlayer requires 'url' instead of 'src'
     const effectiveYoutubeUrl =
       typeof youtubeUrl === "string" ? youtubeUrl.trim() : "";
 
+    // 1. YouTube Mode
     if (isYoutube && effectiveYoutubeUrl) {
       return (
         <div
@@ -165,30 +187,40 @@ const VideoPlayer = forwardRef(
           style={styles.wrapper}
           ref={playerWrapperRef}
         >
-          <div style={styles.playerContainer}>
+          <div style={{ ...styles.playerContainer, position: "relative" }}>
             <ReactPlayer
               ref={reactPlayerRef}
-              url={effectiveYoutubeUrl}
+              src={effectiveYoutubeUrl}
               playing={playing}
               muted={muted}
               volume={volume}
               playsInline={true}
-              controls={false} // Native controls are hidden; custom controls are used
+              controls={false}
               width="100%"
               height="100%"
-              onError={(e) => console.error("YouTube Player Error:", e)}
               onStart={() => {
                 if (isPlaying) setPlaying(true);
               }}
-              onProgress={(progress) => {
-                if (onProgress) onProgress(progress.playedSeconds);
+              onPlay={() => {
+                setPlaying(true);
+                if (onPlay) onPlay();
               }}
+              onPause={() => {
+                if (onPause) onPause();
+              }}
+              // 🟢 FIX: Update local time ref on progress
+              onProgress={(progress) => {
+                currentTimeRef.current = progress.playedSeconds;
+                if (onProgress) {
+                  onProgress(progress.playedSeconds);
+                }
+              }}
+              onError={(e) => console.error("YT Player Error:", e)}
             />
           </div>
 
           <div style={styles.liveBadge}>● YouTube</div>
 
-          {/* Click-to-Start Overlay for Autoplay Blocks */}
           {isPlaying && !playing && (
             <div style={styles.playOverlay}>
               <button
@@ -200,7 +232,6 @@ const VideoPlayer = forwardRef(
             </div>
           )}
 
-          {/* Interaction Shield: Prevents participants from clicking the iframe directly */}
           {!isHost && (
             <div
               style={{
@@ -215,24 +246,19 @@ const VideoPlayer = forwardRef(
               }}
               onClick={(e) => {
                 e.stopPropagation();
-                // Allow click to sync play state if stuck
                 setPlaying(true);
               }}
             />
           )}
 
-          <button
-            onClick={toggleFullscreen}
-            style={styles.fsBtn}
-            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-          >
+          <button onClick={toggleFullscreen} style={styles.fsBtn}>
             {isFullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
           </button>
         </div>
       );
     }
 
-    // 2. MP4 / Stream Player Mode (Waiting State)
+    // 2. MP4 / Stream Placeholder
     if (isMp4 && (!stream || !isValidStream)) {
       return (
         <div
@@ -262,14 +288,8 @@ const VideoPlayer = forwardRef(
                 gap: "15px",
               }}
             >
-              <h2
-                style={{
-                  fontSize: "1.5rem",
-                  fontWeight: "bold",
-                  textAlign: "center",
-                }}
-              >
-                🚫 Video Removed by Host
+              <h2 style={{ fontSize: "1.5rem", fontWeight: "bold" }}>
+                Video Removed by Host
               </h2>
               <p style={{ color: "#94a3b8" }}>Waiting for host to resume...</p>
             </div>
@@ -278,7 +298,7 @@ const VideoPlayer = forwardRef(
       );
     }
 
-    // 3. Active Stream / MP4 Mode
+    // 3. Active Stream / MP4
     if (stream && isValidStream) {
       return (
         <div
@@ -291,14 +311,13 @@ const VideoPlayer = forwardRef(
               ref={videoRef}
               autoPlay
               playsInline
-              controls={false} // Native controls are disabled in favor of custom UI
+              controls={false}
               onPlay={onPlay}
               muted={muted}
               style={{ width: "100%", height: "100%", objectFit: "contain" }}
             />
             <div style={styles.liveBadge}>● LIVE</div>
 
-            {/* Click-to-Watch Overlay for Autoplay Blocks */}
             {showPlayOverlay && (
               <div style={styles.playOverlay}>
                 <button
@@ -316,16 +335,11 @@ const VideoPlayer = forwardRef(
               </div>
             )}
 
-            {/* Media Name Toast */}
             {showOverlay && mediaName && (
               <div style={styles.mediaOverlay}>🎥 Playing: {mediaName}</div>
             )}
 
-            <button
-              onClick={toggleFullscreen}
-              style={styles.fsBtn}
-              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-            >
+            <button onClick={toggleFullscreen} style={styles.fsBtn}>
               {isFullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
             </button>
           </div>
@@ -333,7 +347,7 @@ const VideoPlayer = forwardRef(
       );
     }
 
-    // 4. Default Placeholder State
+    // 4. Default
     return (
       <div className="player-wrapper" style={styles.wrapper}>
         <div style={{ ...styles.playerContainer, backgroundColor: "#1e293b" }}>

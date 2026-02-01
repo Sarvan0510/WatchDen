@@ -165,13 +165,24 @@ export const useWebRTC = (roomId, user) => {
 
   // Switch Video Track (For Screen Share / MP4)
   const replaceVideoTrack = (newStream) => {
-    const newVideoTrack = newStream.getVideoTracks()[0];
-    if (!newVideoTrack) return;
-
     peersRef.current.forEach((pc) => {
       const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+
       if (sender) {
-        sender.replaceTrack(newVideoTrack);
+        if (newStream) {
+          // If a new stream exists, switch to its video track
+          const newVideoTrack = newStream.getVideoTracks()[0];
+          if (newVideoTrack) {
+            sender
+              .replaceTrack(newVideoTrack)
+              .catch((e) => console.error("Track replace failed", e));
+          }
+        } else {
+          // If stream is null (e.g., stopping video), stop sending on this track
+          sender
+            .replaceTrack(null)
+            .catch((e) => console.error("Track clear failed", e));
+        }
       }
     });
   };

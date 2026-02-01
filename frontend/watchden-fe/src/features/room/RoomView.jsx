@@ -20,6 +20,25 @@ import HostControls from "./HostControls";
 import PlayerControls from "./PlayerControls";
 import "./room.css";
 
+const normalizeYoutubeUrl = (input) => {
+  const raw = typeof input === "string" ? input.trim() : "";
+  if (!raw) return null;
+  let videoId = null;
+  try {
+    // youtu.be/VIDEO_ID
+    const shortMatch = raw.match(/(?:youtu\.be\/)([A-Za-z0-9_-]{11})(?:\?|$)/);
+    if (shortMatch) {
+      videoId = shortMatch[1];
+    } else {
+      // youtube.com/watch?v=VIDEO_ID or embed/VIDEO_ID
+      const watchMatch = raw.match(/(?:v=|\/embed\/)([A-Za-z0-9_-]{11})/);
+      if (watchMatch) videoId = watchMatch[1];
+    }
+    if (videoId) return `https://www.youtube.com/watch?v=${videoId}`;
+  } catch (_) {}
+  return null;
+};
+
 const RoomView = () => {
   const { roomCode: rawRoomCode } = useParams();
   // Ensure case-insensitive matching for the room code
@@ -118,7 +137,15 @@ const RoomView = () => {
     let interval;
     if (isHost && (playerState.isMp4 || playerState.isYoutube)) {
       interval = setInterval(() => {
-        const currentTime = mp4VideoRef.current?.currentTime || 0;
+        let currentTime = 0;
+
+        if (playerState.isYoutube && videoPlayerRef.current) {
+          // Ask ReactPlayer for the time
+          currentTime = videoPlayerRef.current.getCurrentTime();
+        } else if (playerState.isMp4) {
+          // Ask local hidden video element for the time
+          currentTime = mp4VideoRef.current?.currentTime || 0;
+        }
 
         const payload = {
           type: "HEARTBEAT",
@@ -317,64 +344,81 @@ const RoomView = () => {
     }
   };
 
+  // RoomView.js
+
   const handleStartScreen = async () => {
     if (!isHost) return;
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: true,
-      });
+      let stream = null;
+
+      // 🟢 FIX: Retry Logic for "Entire Screen" Sharing
+      // Some browsers block "audio: true" when sharing the entire screen.
+      try {
+        // Attempt 1: Try to get video AND audio
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true,
+        });
+      } catch (err) {
+        console.warn("Could not get display audio, trying video only...", err);
+        // Attempt 2: Fallback to video only
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: false,
+        });
+      }
+
       screenStreamRef.current = stream;
 
+      // 1. Set local state
       setLocalStream(stream);
       localStreamRef.current = stream;
       replaceVideoTrack(stream);
+
+      // Force player to wake up
       setPlayerState({
         isPlaying: true,
         isMp4: false,
+        isYoutube: false,
+        youtubeUrl: null,
         currentTime: 0,
         duration: 0,
+        mediaName: "Host Screen",
       });
 
+      // 2. Handle stream stop (user clicks "Stop Sharing" chrome floating bar)
       stream.getVideoTracks()[0].onended = handleStopScreen;
 
+      // 3. Register with API
       await streamApi.startStream({
         roomId: numericRoomId,
         userId: user.id,
         type: "SCREEN",
         source: "Screen",
       });
-      await streamApi.startStream({
-        roomId: numericRoomId,
-        userId: user.id,
-        type: "SCREEN",
-        source: "Screen",
-      });
+
+      // 🟢 NEW: FORCE CONNECTION TO ALL PARTICIPANTS
+      // We must initiate a WebRTC Offer for every participant so they receive the stream.
+      // Without this, they get the "SCREEN_SHARE" socket message but no video data.
+      if (participants && participants.length > 0) {
+        participants.forEach((pId) => {
+          const pidNum = Number(pId);
+          const myId = Number(user.id);
+          const pProfile = profileMap[pId]; // Ensure profileMap is up to date
+
+          if (pidNum !== myId && pProfile?.username) {
+            console.log(`📡 Offering Screen Share to ${pProfile.username}...`);
+            connectToPeer(pProfile.username, stream);
+          }
+        });
+      }
+
+      // 4. Broadcast Signal to Participants
+      sendMessage(roomCode, JSON.stringify({ type: "SCREEN_SHARE" }), "SYNC");
     } catch (e) {
       console.error("Screen Share Error", e);
+      alert("Failed to start screen share. Please check browser permissions.");
     }
-  };
-
-  // Helper to normalize different YouTube URL formats
-  const normalizeYoutubeUrl = (input) => {
-    const raw = typeof input === "string" ? input.trim() : "";
-    if (!raw) return null;
-    let videoId = null;
-    try {
-      // youtu.be/VIDEO_ID
-      const shortMatch = raw.match(
-        /(?:youtu\.be\/)([A-Za-z0-9_-]{11})(?:\?|$)/
-      );
-      if (shortMatch) {
-        videoId = shortMatch[1];
-      } else {
-        // youtube.com/watch?v=VIDEO_ID or embed/VIDEO_ID
-        const watchMatch = raw.match(/(?:v=|\/embed\/)([A-Za-z0-9_-]{11})/);
-        if (watchMatch) videoId = watchMatch[1];
-      }
-      if (videoId) return `https://www.youtube.com/watch?v=${videoId}`;
-    } catch (_) {}
-    return null;
   };
 
   const handleStartYoutube = async (url) => {
@@ -386,9 +430,36 @@ const RoomView = () => {
       return;
     }
 
-    // Stop any existing streams first
-    await handleStopScreen();
+    // FIX: Manual Cleanup to avoid sending a "STOP" message
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((t) => t.stop());
+      screenStreamRef.current = null;
+    }
+    if (mp4VideoRef.current) {
+      mp4VideoRef.current.pause();
+      mp4VideoRef.current = null;
+    }
 
+    // Clear local stream tracks
+    setLocalStream(null);
+    localStreamRef.current = null;
+    replaceVideoTrack(null);
+
+    // Stop backend stream if active
+    try {
+      // 🟢 FIX: Use 'numericRoomId', NOT 'roomCode'
+      if (numericRoomId) {
+        await streamApi.stopStream({
+          roomId: numericRoomId, // <--- Was 'roomCode' (String), changed to Numeric ID
+          userId: user.id,
+        });
+      }
+    } catch (e) {
+      // Ignore error if stream wasn't running
+      console.warn("Stop stream API failed (ignoring):", e);
+    }
+
+    // Update State
     setPlayerState({
       isPlaying: true,
       isMp4: false,
@@ -399,6 +470,7 @@ const RoomView = () => {
       youtubeUrl: normalizedUrl,
     });
 
+    // Broadcast Load Command
     sendMessage(
       roomCode,
       JSON.stringify({ type: "LOAD_YOUTUBE", url: normalizedUrl }),
@@ -438,7 +510,7 @@ const RoomView = () => {
 
     if (hasActiveStream) {
       try {
-        await streamApi.stopStream({ roomId: roomCode, userId: user.id });
+        await streamApi.stopStream({ roomId: numericRoomId, userId: user.id });
       } catch (e) {
         console.warn("Stop stream API failed (ignoring):", e);
       }
@@ -617,6 +689,16 @@ const RoomView = () => {
                   mediaName: action.filename,
                   isPlaying: false,
                 }));
+              } else if (action.type === "SCREEN_SHARE") {
+                // FIX: Handle Screen Share Broadcast
+                setPlayerState((prev) => ({
+                  ...prev,
+                  isMp4: false,
+                  isYoutube: false,
+                  youtubeUrl: null,
+                  isPlaying: true, // Vital: Unlocks the 'stream' check in VideoPlayer
+                  mediaName: "Host Screen",
+                }));
               } else if (action.type === "LOAD_YOUTUBE") {
                 const url = normalizeYoutubeUrl(action.url) || action.url;
                 if (url) {
@@ -641,6 +723,13 @@ const RoomView = () => {
               } else if (action.type === "HEARTBEAT") {
                 lastHostTimeRef.current = action.time;
                 lastHeartbeatReceivedAt.current = Date.now();
+
+                // 🟢 DEBUG LOG: See what the heartbeat says about YouTube
+                if (action.isYoutube) {
+                  console.log(
+                    `[Socket Debug] Heartbeat -> YouTube Active. Time: ${action.time}, HostPlaying: ${action.isPlaying}`
+                  );
+                }
 
                 setPlayerState((prev) => {
                   let newState = { ...prev };
@@ -787,6 +876,14 @@ const RoomView = () => {
                   ? null
                   : activeStream
               }
+              onProgress={(time) => {
+                if (isHost) {
+                  setPlayerState((prev) => ({
+                    ...prev,
+                    currentTime: time,
+                  }));
+                }
+              }}
               isHost={isHost}
               mediaName={playerState.mediaName}
               isMp4={playerState.isMp4}
