@@ -26,7 +26,7 @@ const RoomJoinCreate = () => {
       const roomRequest = {
         roomName: roomName,
         isPublic: isPublic,
-        maxUsers: 10,
+        maxUsers: 2,
       };
 
       console.log("Sending Request:", roomRequest);

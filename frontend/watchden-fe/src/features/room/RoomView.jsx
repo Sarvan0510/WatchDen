@@ -636,195 +636,211 @@ const RoomView = () => {
       return;
     }
 
-    const joinRoomOnLoad = async () => {
+    // Main initialization function acts as a gatekeeper
+    const initRoom = async () => {
       try {
+        // Attempt to join the room via API first
         await roomApi.joinRoom(roomCode);
-        console.log("Joined room successfully on load");
+        console.log("Joined room successfully");
+
+        // If successful, proceed to connect socket and load data
+        establishConnection();
       } catch (error) {
-        if (
-          error.response &&
-          error.response.status !== 409 &&
-          error.response.data?.message !== "User already joined this room"
-        ) {
-          console.error("Failed to auto-join room:", error);
+        const status = error.response?.status;
+        const message = error.response?.data?.message?.toLowerCase() || "";
+
+        // 🟢 STRICT CHECK: Only allow if specifically "already joined"
+        // If the message says "full" or "limit reached", we MUST block them.
+        if (status === 409) {
+          if (message.includes("already joined")) {
+            console.log("ℹ️ User already in room, proceeding...");
+            establishConnection();
+          } else {
+            // 🛑 Block "Room Full" (which might also be 409)
+            console.error("⛔ Access Denied (409):", message);
+            alert(message || "Room is full!");
+            navigate("/rooms");
+          }
+        } else {
+          console.error("⛔ Access Denied:", message);
+          alert(`Cannot join room: ${message || "Access denied"}`);
+          navigate("/rooms");
         }
       }
     };
-    joinRoomOnLoad();
 
-    const loadHistory = async () => {
-      try {
-        const response = await api.get(`/chat/history/${roomCode}`);
-        if (Array.isArray(response.data)) setMessages(response.data);
-      } catch (err) {
-        console.error("History failed", err);
-      }
-    };
-    loadHistory();
-
-    const checkHostStatus = async (retryCount = 0) => {
-      try {
-        const details = await roomApi.getRoomDetails(roomCode);
-        setHostId(details.hostUserId);
-        setNumericRoomId(details.roomId);
-        if (user && details.hostUserId == user.id) {
-          setIsHost(true);
+    // Only called if API authorization passes
+    const establishConnection = () => {
+      // 1. Load Chat History
+      const loadHistory = async () => {
+        try {
+          const response = await api.get(`/chat/history/${roomCode}`);
+          if (Array.isArray(response.data)) setMessages(response.data);
+        } catch (err) {
+          console.error("History failed", err);
         }
-      } catch (error) {
-        if (retryCount < 2)
-          setTimeout(() => checkHostStatus(retryCount + 1), 1000);
-      }
-    };
-    checkHostStatus();
+      };
+      loadHistory();
 
-    if (!isConnected.current) {
-      isConnected.current = true;
-      connectSocket(
-        roomCode,
-        (msg) => {
-          if (msg.type === "HOST_LEFT") setHostLeft(true);
-          else if (String(msg.type).toUpperCase() === "SYNC") {
-            try {
-              const action = JSON.parse(msg.content);
-              lastHeartbeatReceivedAt.current = Date.now();
+      // 2. Check Host Status
+      const checkHostStatus = async (retryCount = 0) => {
+        try {
+          const details = await roomApi.getRoomDetails(roomCode);
+          setHostId(details.hostUserId);
+          setNumericRoomId(details.roomId);
+          if (user && details.hostUserId == user.id) {
+            setIsHost(true);
+          }
+        } catch (error) {
+          if (retryCount < 2)
+            setTimeout(() => checkHostStatus(retryCount + 1), 1000);
+        }
+      };
+      checkHostStatus();
 
-              // Handle Synchronization Commands from Host
-              if (action.type === "PAUSE") {
-                videoPlayerRef.current?.pause();
-                setPlayerState((prev) => ({ ...prev, isPlaying: false }));
-              } else if (action.type === "PLAY") {
-                videoPlayerRef.current?.play();
-                setPlayerState((prev) => ({ ...prev, isPlaying: true }));
-              } else if (action.type === "LOAD") {
-                setPlayerState((prev) => ({
-                  ...prev,
-                  isMp4: true,
-                  isYoutube: false,
-                  mediaName: action.filename,
-                  isPlaying: false,
-                }));
-              } else if (action.type === "SCREEN_SHARE") {
-                // FIX: Handle Screen Share Broadcast
-                setPlayerState((prev) => ({
-                  ...prev,
-                  isMp4: false,
-                  isYoutube: false,
-                  youtubeUrl: null,
-                  isPlaying: true, // Vital: Unlocks the 'stream' check in VideoPlayer
-                  mediaName: "Host Screen",
-                }));
-              } else if (action.type === "LOAD_YOUTUBE") {
-                const url = normalizeYoutubeUrl(action.url) || action.url;
-                if (url) {
+      // 3. Connect Socket
+      if (!isConnected.current) {
+        isConnected.current = true;
+        connectSocket(
+          roomCode,
+          (msg) => {
+            if (msg.type === "HOST_LEFT") {
+              setHostLeft(true);
+            } else if (String(msg.type).toUpperCase() === "SYNC") {
+              try {
+                const action = JSON.parse(msg.content);
+                lastHeartbeatReceivedAt.current = Date.now();
+
+                // Synchronization Logic
+                if (action.type === "PAUSE") {
+                  videoPlayerRef.current?.pause();
+                  setPlayerState((prev) => ({ ...prev, isPlaying: false }));
+                } else if (action.type === "PLAY") {
+                  videoPlayerRef.current?.play();
+                  setPlayerState((prev) => ({ ...prev, isPlaying: true }));
+                } else if (action.type === "LOAD") {
+                  setPlayerState((prev) => ({
+                    ...prev,
+                    isMp4: true,
+                    isYoutube: false,
+                    mediaName: action.filename,
+                    isPlaying: false,
+                  }));
+                } else if (action.type === "SCREEN_SHARE") {
                   setPlayerState((prev) => ({
                     ...prev,
                     isMp4: false,
-                    isYoutube: true,
-                    youtubeUrl: url,
-                    mediaName: "YouTube Video",
+                    isYoutube: false,
+                    youtubeUrl: null,
                     isPlaying: true,
+                    mediaName: "Host Screen",
                   }));
-                }
-              } else if (action.type === "STOP") {
-                setPlayerState((prev) => ({
-                  ...prev,
-                  isMp4: false,
-                  isYoutube: false,
-                  youtubeUrl: null,
-                  mediaName: null,
-                  isPlaying: false,
-                }));
-              } else if (action.type === "HEARTBEAT") {
-                lastHostTimeRef.current = action.time;
-                lastHeartbeatReceivedAt.current = Date.now();
+                } else if (action.type === "LOAD_YOUTUBE") {
+                  const url = normalizeYoutubeUrl(action.url) || action.url;
+                  if (url) {
+                    setPlayerState((prev) => ({
+                      ...prev,
+                      isMp4: false,
+                      isYoutube: true,
+                      youtubeUrl: url,
+                      mediaName: "YouTube Video",
+                      isPlaying: true,
+                    }));
+                  }
+                } else if (action.type === "STOP") {
+                  setPlayerState((prev) => ({
+                    ...prev,
+                    isMp4: false,
+                    isYoutube: false,
+                    youtubeUrl: null,
+                    mediaName: null,
+                    isPlaying: false,
+                  }));
+                } else if (action.type === "HEARTBEAT") {
+                  lastHostTimeRef.current = action.time;
+                  lastHeartbeatReceivedAt.current = Date.now();
 
-                // 🟢 DEBUG LOG: See what the heartbeat says about YouTube
-                if (action.isYoutube) {
-                  console.log(
-                    `[Socket Debug] Heartbeat -> YouTube Active. Time: ${action.time}, HostPlaying: ${action.isPlaying}`
-                  );
-                }
+                  setPlayerState((prev) => {
+                    let newState = { ...prev };
+                    let hasChanged = false;
 
-                setPlayerState((prev) => {
-                  let newState = { ...prev };
-                  let hasChanged = false;
+                    // Enforce Host State
+                    if (!isHost && action.isYoutube && action.youtubeUrl) {
+                      const normalizedUrl =
+                        normalizeYoutubeUrl(action.youtubeUrl) ||
+                        action.youtubeUrl;
 
-                  // Enforce Youtube State if Host dictates
-                  if (!isHost && action.isYoutube && action.youtubeUrl) {
-                    const normalizedUrl =
-                      normalizeYoutubeUrl(action.youtubeUrl) ||
-                      action.youtubeUrl;
+                      if (
+                        !prev.isYoutube ||
+                        prev.youtubeUrl !== normalizedUrl
+                      ) {
+                        newState.isYoutube = true;
+                        newState.isMp4 = false;
+                        newState.youtubeUrl = normalizedUrl;
+                        newState.mediaName =
+                          action.mediaName || "YouTube Video";
+                        hasChanged = true;
+                      }
+                    } else if (!isHost && action.isMp4) {
+                      if (!prev.isMp4 || prev.mediaName !== action.mediaName) {
+                        newState.isMp4 = true;
+                        newState.isYoutube = false;
+                        newState.mediaName = action.mediaName;
+                        hasChanged = true;
+                      }
+                    }
 
-                    if (!prev.isYoutube || prev.youtubeUrl !== normalizedUrl) {
-                      newState.isYoutube = true;
-                      newState.isMp4 = false;
-                      newState.youtubeUrl = normalizedUrl;
-                      newState.mediaName = action.mediaName || "YouTube Video";
+                    if (
+                      action.isPlaying !== undefined &&
+                      action.isPlaying !== prev.isPlaying
+                    ) {
+                      newState.isPlaying = action.isPlaying;
                       hasChanged = true;
                     }
-                  }
-                  // Enforce MP4 State if Host dictates
-                  else if (!isHost && action.isMp4) {
-                    if (!prev.isMp4 || prev.mediaName !== action.mediaName) {
-                      newState.isMp4 = true;
-                      newState.isYoutube = false;
-                      newState.mediaName = action.mediaName;
-                      hasChanged = true;
-                    }
-                  }
 
-                  // Enforce Play/Pause State
-                  if (
-                    action.isPlaying !== undefined &&
-                    action.isPlaying !== prev.isPlaying
-                  ) {
-                    newState.isPlaying = action.isPlaying;
-                    hasChanged = true;
-                  }
-
-                  return hasChanged ? newState : prev;
-                });
+                    return hasChanged ? newState : prev;
+                  });
+                }
+              } catch (e) {
+                console.error("Failed to parse SYNC payload", e);
               }
-            } catch (e) {
-              console.error("Failed to parse SYNC payload", e);
+            } else if (msg.type === "CHAT") {
+              setMessages((prev) => {
+                const isDuplicate = prev.some(
+                  (m) =>
+                    (m.id && m.id === msg.id) ||
+                    (m.sender === msg.sender &&
+                      m.content === msg.content &&
+                      Math.abs(
+                        new Date(m.timestamp).getTime() -
+                          new Date(msg.timestamp).getTime()
+                      ) < 1000)
+                );
+
+                if (isDuplicate) return prev;
+                return [...prev, msg];
+              });
             }
-          }
-          // Handle Chat Messages
-          else if (msg.type === "CHAT") {
-            setMessages((prev) => {
-              // Deduplicate logic to prevent double messages
-              const isDuplicate = prev.some(
-                (m) =>
-                  (m.id && m.id === msg.id) ||
-                  (m.sender === msg.sender &&
-                    m.content === msg.content &&
-                    Math.abs(
-                      new Date(m.timestamp).getTime() -
-                        new Date(msg.timestamp).getTime()
-                    ) < 1000)
-              );
+          },
+          (users) => {
+            setParticipants(users);
+          },
+          (signal) => handleIncomingSignal(signal, localStreamRef.current)
+        );
 
-              if (isDuplicate) return prev;
-              return [...prev, msg];
+        if (!joinSentRef.current) {
+          joinSentRef.current = true;
+          setTimeout(() => {
+            import("../../socket/roomSocket").then(({ sendSignal }) => {
+              sendSignal(roomCode, "join", {});
             });
-          }
-        },
-        (users) => {
-          setParticipants(users);
-        },
-        (signal) => handleIncomingSignal(signal, localStreamRef.current)
-      );
-
-      // Send Join Signal to initialize WebRTC connection
-      if (!joinSentRef.current) {
-        joinSentRef.current = true;
-        setTimeout(() => {
-          import("../../socket/roomSocket").then(({ sendSignal }) => {
-            sendSignal(roomCode, "join", {});
-          });
-        }, 1500);
+          }, 1500);
+        }
       }
-    }
+    };
+
+    // Execute the initialization flow
+    initRoom();
 
     return () => {
       isConnected.current = false;
