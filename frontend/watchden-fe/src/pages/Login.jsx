@@ -1,5 +1,11 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import {
+  SignInIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  WarningIcon,
+} from "@phosphor-icons/react";
 import { useAuth } from "../features/auth/useAuth";
 import Loader from "../components/Loader";
 
@@ -8,6 +14,7 @@ const Login = () => {
     username: "",
     password: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
   const { login, loading, error } = useAuth();
 
   const handleChange = (e) => {
@@ -18,7 +25,6 @@ const Login = () => {
     e.preventDefault();
     const success = await login(credentials);
     if (success) {
-      // Use hard redirect to ensure sync as we discussed earlier
       window.location.href = "/rooms";
     }
   };
@@ -37,7 +43,12 @@ const Login = () => {
 
         {error && (
           <div className="error-message" style={styles.error}>
-            <span style={{ marginRight: "8px" }}>⚠️</span> {error}
+            <WarningIcon
+              size={20}
+              weight="bold"
+              style={{ marginRight: "8px" }}
+            />
+            {error}
           </div>
         )}
 
@@ -56,14 +67,28 @@ const Login = () => {
 
           <div className="form-group" style={styles.group}>
             <label style={styles.label}>Password</label>
-            <input
-              name="password"
-              type="password"
-              placeholder="••••••••"
-              onChange={handleChange}
-              style={styles.input}
-              required
-            />
+            <div style={styles.passwordWrapper}>
+              <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
+                onChange={handleChange}
+                style={{ ...styles.input, paddingRight: "40px" }}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={styles.eyeBtn}
+                tabIndex="-1"
+              >
+                {showPassword ? (
+                  <EyeSlashIcon size={20} weight="bold" color="#94a3b8" />
+                ) : (
+                  <EyeIcon size={20} weight="bold" color="#94a3b8" />
+                )}
+              </button>
+            </div>
           </div>
 
           <button
@@ -75,7 +100,14 @@ const Login = () => {
                 : styles.button
             }
           >
-            {loading ? <Loader /> : "Sign In"}
+            {loading ? (
+              <Loader />
+            ) : (
+              <>
+                <SignInIcon size={20} weight="bold" />
+                Sign In
+              </>
+            )}
           </button>
         </form>
 
@@ -90,14 +122,13 @@ const Login = () => {
   );
 };
 
-// --- Modern Dark Theme Styles ---
 const styles = {
   page: {
     height: "100vh",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#0f172a", // Deep navy/black
+    backgroundColor: "#0f172a",
     backgroundImage:
       "radial-gradient(circle at 50% 50%, #1e1b4b 0%, #0f172a 100%)",
     padding: "20px",
@@ -105,7 +136,7 @@ const styles = {
   card: {
     width: "100%",
     maxWidth: "400px",
-    backgroundColor: "#1e293b", // Slate blue/grey
+    backgroundColor: "#1e293b",
     padding: "40px",
     borderRadius: "16px",
     boxShadow:
@@ -136,6 +167,9 @@ const styles = {
     marginBottom: "20px",
     fontSize: "0.85rem",
     border: "1px solid rgba(239, 68, 68, 0.2)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   form: {
     textAlign: "left",
@@ -150,6 +184,10 @@ const styles = {
     fontWeight: "500",
     marginBottom: "8px",
   },
+  passwordWrapper: {
+    position: "relative",
+    width: "100%",
+  },
   input: {
     width: "100%",
     padding: "12px 16px",
@@ -161,6 +199,21 @@ const styles = {
     outline: "none",
     transition: "border-color 0.2s",
     boxSizing: "border-box",
+  },
+  eyeBtn: {
+    position: "absolute",
+    right: "12px",
+    top: "50%",
+    transform: "translateY(-65%)",
+    background: "transparent",
+    border: "none",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "4px",
+    margin: 0,
+    color: "#94a3b8",
   },
   button: {
     width: "100%",
@@ -177,6 +230,7 @@ const styles = {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
+    gap: "8px",
   },
   buttonDisabled: {
     backgroundColor: "#4338ca",

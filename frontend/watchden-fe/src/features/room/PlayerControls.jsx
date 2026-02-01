@@ -28,11 +28,11 @@ const PlayerControls = ({
   onToggleMute,
   onVolumeChange,
 }) => {
-  // 🟢 FIX: Local state to handle dragging without flickering
+  // Local state to handle dragging without flickering
   const [isDragging, setIsDragging] = useState(false);
   const [sliderValue, setSliderValue] = useState(currentTime);
 
-  // 🟢 FIX: Only sync local slider with video time if NOT dragging
+  // Sync local slider with video time if not dragging
   useEffect(() => {
     if (!isDragging) {
       setSliderValue(currentTime);
@@ -43,7 +43,7 @@ const PlayerControls = ({
   const handleSeekChange = (e) => {
     const val = Number(e.target.value);
     setSliderValue(val); // Update visual slider immediately
-    onSeek(val); // Send seek command to video (Live Scrubbing)
+    onSeek(val); // Send seek command to video
   };
 
   const handleDragStart = () => setIsDragging(true);
@@ -59,7 +59,7 @@ const PlayerControls = ({
 
   return (
     <div style={styles.container}>
-      {/* 🟢 SEEK BAR (Host Only) */}
+      {/* Seek Bar (Host Only) */}
       {isHost && (
         <div style={styles.seekRow}>
           <span style={styles.timeText}>{formatTime(sliderValue)}</span>
@@ -67,10 +67,10 @@ const PlayerControls = ({
             type="range"
             min="0"
             max={duration || 100}
-            // 🟢 FIX: Use local sliderValue instead of currentTime prop
+            // Use local sliderValue instead of currentTime prop
             value={sliderValue || 0}
             onChange={handleSeekChange}
-            // 🟢 FIX: Detect Drag Events
+            // Detect Drag Events
             onMouseDown={handleDragStart}
             onMouseUp={handleDragEnd}
             onTouchStart={handleDragStart}
@@ -81,9 +81,9 @@ const PlayerControls = ({
         </div>
       )}
 
-      {/* 🟢 CONTROLS ROW */}
+      {/* Controls Row */}
       <div style={styles.controlsRow}>
-        {/* LEFT: Playback Controls */}
+        {/* Left: Playback Controls */}
         <div style={styles.buttonGroup}>
           {isHost ? (
             <>
@@ -140,7 +140,7 @@ const PlayerControls = ({
           )}
         </div>
 
-        {/* RIGHT: Volume (Everyone) */}
+        {/* Right: Volume (Everyone) */}
         <div style={styles.volumeGroup}>
           <button style={styles.iconBtn} onClick={onToggleMute}>
             {isMuted ? (

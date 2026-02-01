@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { FloppyDiskIcon, WarningIcon, XIcon } from "@phosphor-icons/react";
 import { userApi } from "../../api/user.api";
 
 const EditProfileForm = ({ currentProfile, onUpdateSuccess, onCancel }) => {
@@ -6,22 +7,20 @@ const EditProfileForm = ({ currentProfile, onUpdateSuccess, onCancel }) => {
     currentProfile?.displayName || ""
   );
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(""); // 🟢 Added local error state
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError(""); // Clear previous errors
+    setError("");
 
     try {
-      // Calls PUT /api/users/me via Gateway -> User Service
       const updatedUser = await userApi.updateProfile({
         displayName,
       });
       onUpdateSuccess(updatedUser);
     } catch (err) {
-      console.error("Failed to update profile", err);
-      // 🟢 Logic: Catch specific error messages from backend if available
+      // console.error("Failed to update profile", err);
       const backendMessage =
         err.response?.data?.message ||
         "Something went wrong. Please try again.";
@@ -33,10 +32,11 @@ const EditProfileForm = ({ currentProfile, onUpdateSuccess, onCancel }) => {
 
   return (
     <form onSubmit={handleSubmit} style={styles.form}>
-      {/* 🟢 Render error message if it exists */}
+      {/* Error Banner */}
       {error && (
         <div style={styles.errorBanner}>
-          <span style={{ marginRight: "8px" }}>⚠️</span> {error}
+          <WarningIcon size={18} weight="bold" style={{ marginRight: "8px" }} />
+          {error}
         </div>
       )}
 
@@ -62,6 +62,7 @@ const EditProfileForm = ({ currentProfile, onUpdateSuccess, onCancel }) => {
           disabled={loading}
           style={loading ? { ...styles.saveBtn, opacity: 0.7 } : styles.saveBtn}
         >
+          <FloppyDiskIcon size={18} weight="bold" />
           {loading ? "Saving..." : "Save Changes"}
         </button>
         <button
@@ -70,6 +71,7 @@ const EditProfileForm = ({ currentProfile, onUpdateSuccess, onCancel }) => {
           style={styles.cancelBtn}
           disabled={loading}
         >
+          <XIcon size={18} weight="bold" />
           Cancel
         </button>
       </div>
@@ -77,7 +79,6 @@ const EditProfileForm = ({ currentProfile, onUpdateSuccess, onCancel }) => {
   );
 };
 
-// --- Added Styles for Error Handling ---
 const styles = {
   form: {
     width: "100%",
@@ -127,6 +128,10 @@ const styles = {
     fontWeight: "600",
     cursor: "pointer",
     transition: "background 0.2s",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
   },
   cancelBtn: {
     flex: 1,
@@ -138,6 +143,10 @@ const styles = {
     fontWeight: "600",
     cursor: "pointer",
     transition: "background 0.2s",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
   },
   errorBanner: {
     backgroundColor: "rgba(239, 68, 68, 0.1)",
@@ -148,6 +157,8 @@ const styles = {
     fontSize: "0.85rem",
     border: "1px solid rgba(239, 68, 68, 0.2)",
     animation: "shake 0.2s ease-in-out",
+    display: "flex",
+    alignItems: "center",
   },
 };
 

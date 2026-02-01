@@ -1,5 +1,5 @@
 import React from "react";
-import "../styles/global.css"; // Assuming you have some basic CSS
+import "../styles/global.css";
 
 const Loader = ({ fullScreen = false }) => {
   const containerStyle = fullScreen

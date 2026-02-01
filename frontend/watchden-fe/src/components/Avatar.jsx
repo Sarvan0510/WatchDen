@@ -17,8 +17,8 @@ const Avatar = ({ src, name, size = "md" }) => {
     if (!path) return "";
     if (path.startsWith("http")) return path;
 
-    // CRITICAL: Pointing to Gateway (8080) which routes to User Service (via /api/users)
-    // The backend now maps /api/users/uploads/** to the physical file.
+    // Pointing to Gateway (8080) which routes to User Service (via /api/users)
+    // So that The backend can map /api/users/uploads/** to the physical file.
     return `http://localhost:8080/api/users${path}`;
   };
 
@@ -29,14 +29,14 @@ const Avatar = ({ src, name, size = "md" }) => {
 
   if (src && !imgError) {
     const fullUrl = getFullUrl(src);
-    console.log(`🖼️ Avatar [${name}]: Trying to load:`, fullUrl);
+    // console.log(`Avatar [${name}]: Trying to load:`, fullUrl);
     return (
       <img
         src={fullUrl}
         alt={name}
         className={`avatar avatar-${size}`}
         onError={(e) => {
-          console.error("Avatar failed to load:", fullUrl);
+          // console.error("Avatar failed to load:", fullUrl);
           setImgError(true);
         }}
       />

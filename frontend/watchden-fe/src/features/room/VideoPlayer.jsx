@@ -6,25 +6,12 @@ import React, {
   useImperativeHandle,
 } from "react";
 import ReactPlayer from "react-player";
-
-/* --- Icons --- */
-const FullscreenIcon = () => (
-  <svg height="100%" version="1.1" viewBox="0 0 36 36" width="100%">
-    <path
-      d="M 10 16 L 12 16 L 12 12 L 16 12 L 16 10 L 10 10 L 10 16 Z M 26 16 L 26 10 L 20 10 L 20 12 L 24 12 L 24 16 L 26 16 Z M 26 20 L 24 20 L 24 24 L 20 24 L 20 26 L 26 26 L 26 20 Z M 10 20 L 10 26 L 16 26 L 16 24 L 12 24 L 12 20 L 10 20 Z"
-      fill="white"
-    ></path>
-  </svg>
-);
-
-const ExitFullscreenIcon = () => (
-  <svg height="100%" version="1.1" viewBox="0 0 36 36" width="100%">
-    <path
-      d="M 14 14 L 10 14 L 10 16 L 16 16 L 16 10 L 14 10 L 14 14 Z M 22 14 L 22 10 L 20 10 L 20 16 L 26 16 L 26 14 L 22 14 Z M 20 26 L 22 26 L 22 22 L 26 22 L 26 20 L 20 20 L 20 26 Z M 10 22 L 14 22 L 14 26 L 16 26 L 16 20 L 10 20 L 10 22 Z"
-      fill="white"
-    ></path>
-  </svg>
-);
+import {
+  CornersOutIcon,
+  CornersInIcon,
+  PlayIcon,
+  CircleIcon,
+} from "@phosphor-icons/react";
 
 const VideoPlayer = forwardRef(
   (
@@ -57,7 +44,7 @@ const VideoPlayer = forwardRef(
     const reactPlayerRef = useRef(null);
     const playerWrapperRef = useRef(null);
 
-    // 🟢 FIX: Track time locally to avoid calling broken ref methods
+    // Track time locally to avoid calling broken ref methods
     const currentTimeRef = useRef(0);
 
     // --- Synchronization ---
@@ -83,9 +70,9 @@ const VideoPlayer = forwardRef(
     // --- Helpers ---
     const toggleFullscreen = () => {
       if (!document.fullscreenElement) {
-        playerWrapperRef.current
-          ?.requestFullscreen()
-          .catch((err) => console.error(err));
+        playerWrapperRef.current?.requestFullscreen().catch((err) => {
+          // console.error(err)
+        });
         setIsFullscreen(true);
       } else {
         document.exitFullscreen();
@@ -118,12 +105,12 @@ const VideoPlayer = forwardRef(
         try {
           vid.currentTime = vid.buffered.end(vid.buffered.length - 1);
         } catch (e) {
-          console.error("Failed to jump to live edge", e);
+          // console.error("Failed to jump to live edge", e);
         }
       }
     };
 
-    // --- Imperative Handle (Command Center) ---
+    // --- Imperative Handle ---
     useImperativeHandle(
       ref,
       () => ({
@@ -144,7 +131,7 @@ const VideoPlayer = forwardRef(
         },
         jumpToLive: jumpToLiveInternal,
 
-        // 🟢 FIX: Return locally tracked time instead of calling ref method
+        // Return locally tracked time instead of calling ref method
         getCurrentTime: () => {
           if (isYoutube) {
             return currentTimeRef.current;
@@ -208,18 +195,23 @@ const VideoPlayer = forwardRef(
               onPause={() => {
                 if (onPause) onPause();
               }}
-              // 🟢 FIX: Update local time ref on progress
+              // Update local time ref on progress
               onProgress={(progress) => {
                 currentTimeRef.current = progress.playedSeconds;
                 if (onProgress) {
                   onProgress(progress.playedSeconds);
                 }
               }}
-              onError={(e) => console.error("YT Player Error:", e)}
+              onError={(e) => {
+                // console.error("YT Player Error:", e)
+              }}
             />
           </div>
 
-          <div style={styles.liveBadge}>● YouTube</div>
+          <div style={styles.liveBadge}>
+            <CircleIcon weight="fill" size={10} color="#ff0000" />
+            <span>YouTube</span>
+          </div>
 
           {isPlaying && !playing && (
             <div style={styles.playOverlay}>
@@ -227,7 +219,8 @@ const VideoPlayer = forwardRef(
                 style={styles.bigPlayBtn}
                 onClick={() => setPlaying(true)}
               >
-                ▶ Click to Start
+                <PlayIcon weight="fill" size={24} />
+                Click to Start
               </button>
             </div>
           )}
@@ -252,7 +245,11 @@ const VideoPlayer = forwardRef(
           )}
 
           <button onClick={toggleFullscreen} style={styles.fsBtn}>
-            {isFullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
+            {isFullscreen ? (
+              <CornersInIcon size={24} />
+            ) : (
+              <CornersOutIcon size={24} />
+            )}
           </button>
         </div>
       );
@@ -289,7 +286,7 @@ const VideoPlayer = forwardRef(
               }}
             >
               <h2 style={{ fontSize: "1.5rem", fontWeight: "bold" }}>
-                Video Removed by Host
+                Video Not Started Yet
               </h2>
               <p style={{ color: "#94a3b8" }}>Waiting for host to resume...</p>
             </div>
@@ -316,7 +313,10 @@ const VideoPlayer = forwardRef(
               muted={muted}
               style={{ width: "100%", height: "100%", objectFit: "contain" }}
             />
-            <div style={styles.liveBadge}>● LIVE</div>
+            <div style={styles.liveBadge}>
+              <CircleIcon weight="fill" size={10} color="#ff0000" />
+              <span>LIVE</span>
+            </div>
 
             {showPlayOverlay && (
               <div style={styles.playOverlay}>
@@ -330,7 +330,8 @@ const VideoPlayer = forwardRef(
                     }
                   }}
                 >
-                  ▶ Click to Watch
+                  <PlayIcon weight="fill" size={24} />
+                  Click to Watch
                 </button>
               </div>
             )}
@@ -340,7 +341,11 @@ const VideoPlayer = forwardRef(
             )}
 
             <button onClick={toggleFullscreen} style={styles.fsBtn}>
-              {isFullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
+              {isFullscreen ? (
+                <CornersInIcon size={24} />
+              ) : (
+                <CornersOutIcon size={24} />
+              )}
             </button>
           </div>
         </div>
@@ -395,6 +400,9 @@ const styles = {
     fontWeight: "bold",
     pointerEvents: "none",
     zIndex: 20,
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
   },
   mediaOverlay: {
     position: "absolute",
@@ -432,6 +440,9 @@ const styles = {
     fontWeight: "bold",
     boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
     transition: "transform 0.2s",
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
   },
   fsBtn: {
     position: "absolute",

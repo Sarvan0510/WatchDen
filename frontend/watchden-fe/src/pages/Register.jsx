@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { UserPlusIcon, WarningIcon } from "@phosphor-icons/react";
 import { useAuth } from "../features/auth/useAuth";
 import Loader from "../components/Loader";
 
@@ -40,7 +41,12 @@ const Register = () => {
 
         {error && (
           <div className="error-message" style={styles.error}>
-            <span style={{ marginRight: "8px" }}>⚠️</span> {error}
+            <WarningIcon
+              size={20}
+              weight="bold"
+              style={{ marginRight: "8px" }}
+            />
+            {error}
           </div>
         )}
 
@@ -77,15 +83,21 @@ const Register = () => {
                 type={showPassword ? "text" : "password"}
                 placeholder="Create a strong password"
                 onChange={handleChange}
-                style={styles.inputPassword}
+                // Add padding to right so text doesn't overlap icon
+                style={{ ...styles.input, paddingRight: "40px" }}
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                style={styles.toggleBtn}
+                style={styles.eyeBtn}
+                tabIndex="-1"
               >
-                {showPassword ? "Hide" : "Show"}
+                {showPassword ? (
+                  <EyeSlashIcon size={20} color="#94a3b8" />
+                ) : (
+                  <EyeIcon size={20} color="#94a3b8" />
+                )}
               </button>
             </div>
           </div>
@@ -99,7 +111,14 @@ const Register = () => {
                 : styles.button
             }
           >
-            {loading ? <Loader /> : "Create Account"}
+            {loading ? (
+              <Loader />
+            ) : (
+              <>
+                <UserPlusIcon size={20} weight="bold" />
+                Create Account
+              </>
+            )}
           </button>
         </form>
 
@@ -114,7 +133,7 @@ const Register = () => {
   );
 };
 
-// --- Styles (Matching Login Page) ---
+// --- Styles ---
 const styles = {
   page: {
     height: "100vh",
@@ -154,6 +173,8 @@ const styles = {
     fontSize: "0.85rem",
     border: "1px solid rgba(239, 68, 68, 0.2)",
     textAlign: "left",
+    display: "flex",
+    alignItems: "center",
   },
   form: { textAlign: "left" },
   group: { marginBottom: "20px" },
@@ -166,8 +187,7 @@ const styles = {
   },
   passwordWrapper: {
     position: "relative",
-    display: "flex",
-    alignItems: "center",
+    width: "100%",
   },
   input: {
     width: "100%",
@@ -179,27 +199,22 @@ const styles = {
     fontSize: "1rem",
     outline: "none",
     boxSizing: "border-box",
+    transition: "border-color 0.2s",
   },
-  inputPassword: {
-    width: "100%",
-    padding: "12px 60px 12px 16px",
-    backgroundColor: "#0f172a",
-    border: "1px solid #334155",
-    borderRadius: "8px",
-    color: "white",
-    fontSize: "1rem",
-    outline: "none",
-    boxSizing: "border-box",
-  },
-  toggleBtn: {
+  eyeBtn: {
     position: "absolute",
     right: "12px",
-    background: "none",
+    top: "50%",
+    // Visual centering tweak
+    transform: "translateY(-65%)",
+    background: "transparent",
     border: "none",
-    color: "#6366f1",
     cursor: "pointer",
-    fontSize: "0.8rem",
-    fontWeight: "600",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "4px",
+    color: "#94a3b8",
   },
   button: {
     width: "100%",
@@ -215,6 +230,8 @@ const styles = {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
+    gap: "8px",
+    transition: "background-color 0.2s",
   },
   buttonDisabled: {
     backgroundColor: "#4338ca",

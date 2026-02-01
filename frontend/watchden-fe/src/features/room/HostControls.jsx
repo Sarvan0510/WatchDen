@@ -1,10 +1,10 @@
 import React from "react";
 import {
-  FileVideo,
-  MonitorPlay,
-  XCircle,
-  YoutubeLogo,
-  Play,
+  YoutubeLogoIcon,
+  XCircleIcon,
+  MonitorPlayIcon,
+  FileVideoIcon,
+  PlayIcon,
 } from "@phosphor-icons/react";
 
 const HostControls = ({
@@ -15,12 +15,11 @@ const HostControls = ({
   fileInputRef,
 }) => {
   return (
-    /* 🟢 NO controlZone wrapper here. Just the panel. */
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
         <h3 style={styles.title}>Stream Controls</h3>
-        <span style={styles.badge}>ADMIN</span>
+        <span style={styles.badge}>HOST</span>
       </div>
 
       {/* Main Controls Grid */}
@@ -34,12 +33,12 @@ const HostControls = ({
         />
 
         <button style={styles.btn} onClick={() => fileInputRef.current.click()}>
-          <FileVideo size={20} weight="fill" />
+          <FileVideoIcon size={20} weight="fill" />
           <span>Play MP4</span>
         </button>
 
         <button style={styles.btn} onClick={onStartScreen}>
-          <MonitorPlay size={20} weight="fill" />
+          <MonitorPlayIcon size={20} weight="fill" />
           <span>Screen</span>
         </button>
 
@@ -47,7 +46,7 @@ const HostControls = ({
           style={{ ...styles.btn, ...styles.stopBtn }}
           onClick={onStopScreen}
         >
-          <XCircle size={20} weight="fill" />
+          <XCircleIcon size={20} weight="fill" />
           <span>Stop</span>
         </button>
       </div>
@@ -55,7 +54,7 @@ const HostControls = ({
       {/* YouTube Section */}
       <div style={styles.youtubeContainer}>
         <div style={styles.inputGroup}>
-          <YoutubeLogo
+          <YoutubeLogoIcon
             size={24}
             color="#ef4444"
             weight="fill"
@@ -79,7 +78,7 @@ const HostControls = ({
             if (val) onStartYoutube(val);
           }}
         >
-          <Play size={16} weight="fill" />
+          <PlayIcon size={16} weight="fill" />
         </button>
       </div>
     </div>
@@ -87,8 +86,6 @@ const HostControls = ({
 };
 
 const styles = {
-  // 🟢 REMOVED: controlZone, position: absolute, bottom: 0
-  // Now it's just a card style:
   container: {
     padding: "16px",
     backgroundColor: "rgba(30, 41, 59, 0.95)",
@@ -97,7 +94,6 @@ const styles = {
     border: "1px solid rgba(255, 255, 255, 0.1)",
     boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
     width: "100%",
-    // It will fill the width of the parent container in RoomView
   },
   header: {
     display: "flex",
@@ -174,7 +170,9 @@ const styles = {
     color: "white",
     fontSize: "13px",
     outline: "none",
-    paddingRight: "12px",
+    margin: 0,
+    padding: "0 12px 0 0",
+    boxSizing: "border-box",
   },
   playBtn: {
     width: "44px",

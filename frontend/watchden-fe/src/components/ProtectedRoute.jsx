@@ -7,7 +7,7 @@ const ProtectedRoute = ({ children }) => {
   const isAuth = authUtils.isAuthenticated();
 
   if (!isAuth) {
-    // Redirect to login but remember where they were trying to go
+    // Redirect to login while remembering where the user was trying to go
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

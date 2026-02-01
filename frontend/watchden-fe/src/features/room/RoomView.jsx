@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { LockKeyIcon, ArrowUUpLeftIcon } from "@phosphor-icons/react";
 import api from "../../api/api";
 import { userApi } from "../../api/user.api";
 import { roomApi } from "../../api/room.api";
@@ -61,7 +62,7 @@ const RoomView = () => {
   // --- WebRTC & Media State ---
   const [localStream, setLocalStream] = useState(null);
 
-  // Player state manages the active media content (MP4, YouTube, or Screen Share)
+  // Player state manages the active media content
   const [playerState, setPlayerState] = useState({
     isPlaying: false,
     isMp4: false,
@@ -72,7 +73,7 @@ const RoomView = () => {
     mediaName: null,
   });
 
-  // Local Audio State (controls whether the user hears the audio)
+  // Local Audio State
   const [isLocalMuted, setIsLocalMuted] = useState(true);
   const [localVolume, setLocalVolume] = useState(0.5);
 
@@ -94,7 +95,7 @@ const RoomView = () => {
     connectToPeer,
   } = useWebRTC(roomCode, user);
 
-  // Track the host's current timestamp and the last heartbeat time for synchronization
+  // Track the host's current timestamp and the last heartbeat time
   const lastHostTimeRef = useRef(0);
   const lastHeartbeatReceivedAt = useRef(Date.now());
 
@@ -111,7 +112,7 @@ const RoomView = () => {
       return;
     }
 
-    // If Participant, snap to the host's current time (Live Edge or Heartbeat time)
+    // If Participant, snap to the host's current time
     if (playerState.isMp4 && videoPlayerRef.current) {
       videoPlayerRef.current.jumpToLive();
     } else if (playerState.isYoutube && videoPlayerRef.current) {
@@ -132,7 +133,7 @@ const RoomView = () => {
   };
 
   // --- Host Heartbeat Loop ---
-  // Sends synchronization data (time, state) to participants every 2 seconds
+  // Sends synchronization data to participants every 2 seconds
   useEffect(() => {
     let interval;
     if (isHost && (playerState.isMp4 || playerState.isYoutube)) {
@@ -178,13 +179,13 @@ const RoomView = () => {
   const activeStream = isHost
     ? localStream
     : (hostUsername && remoteStreams.get(hostUsername)) ||
-      // Fallback: If host username isn't mapped yet, take the first available stream
+      // Fallback to first available stream
       (remoteStreams.size > 0 ? remoteStreams.values().next().value : null);
 
-  // --- Playback Control Handlers (Pause, Stop, Seek) ---
+  // --- Playback Control Handlers ---
 
   const handlePlayPause = () => {
-    // YouTube specific handling via ReactPlayer ref
+    // YouTube specific handling
     if (playerState.isYoutube && videoPlayerRef.current) {
       const nextPlaying = !playerState.isPlaying;
       if (nextPlaying) {
@@ -199,7 +200,7 @@ const RoomView = () => {
       return;
     }
 
-    // Native Video Element (MP4) handling
+    // Native Video Element handling
     const video = mp4VideoRef.current;
     if (!video) return;
 
@@ -262,15 +263,15 @@ const RoomView = () => {
   const handleStartMp4 = async (file) => {
     if (!isHost || !file) return;
 
-    // 🟢 FIX 1: IMMEDIATELY kill the previous video to stop "Ghost" time updates
+    // Immediately kill the previous video to stop ghost time updates
     if (mp4VideoRef.current) {
       mp4VideoRef.current.pause();
-      mp4VideoRef.current.ontimeupdate = null; // <--- This stops the flickering
+      mp4VideoRef.current.ontimeupdate = null;
       mp4VideoRef.current.onended = null;
       mp4VideoRef.current = null;
     }
 
-    // Clear the input so "onChange" triggers if you pick the same file again after stopping
+    // Clear input so onchange triggers if the same file is selected again
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -300,6 +301,7 @@ const RoomView = () => {
       setPlayerState({
         isPlaying: true,
         isMp4: true,
+        isYoutube: false,
         currentTime: 0,
         duration: video.duration || 0,
         mediaName: file.name,
@@ -338,7 +340,7 @@ const RoomView = () => {
           });
           setProfileMap((prev) => ({ ...prev, ...currentProfiles }));
         } catch (e) {
-          console.error("Profile fetch failed:", e);
+          // console.error("Profile fetch failed:", e);
         }
       }
 
@@ -354,19 +356,16 @@ const RoomView = () => {
         });
       }
     } catch (e) {
-      console.error("MP4 Error", e);
+      // console.error("MP4 Error", e);
     }
   };
-
-  // RoomView.js
 
   const handleStartScreen = async () => {
     if (!isHost) return;
     try {
       let stream = null;
 
-      // 🟢 FIX: Retry Logic for "Entire Screen" Sharing
-      // Some browsers block "audio: true" when sharing the entire screen.
+      // Retry logic for Entire Screen Sharing
       try {
         // Attempt 1: Try to get video AND audio
         stream = await navigator.mediaDevices.getDisplayMedia({
@@ -374,7 +373,7 @@ const RoomView = () => {
           audio: true,
         });
       } catch (err) {
-        console.warn("Could not get display audio, trying video only...", err);
+        // console.warn("Could not get display audio, trying video only...", err);
         // Attempt 2: Fallback to video only
         stream = await navigator.mediaDevices.getDisplayMedia({
           video: true,
@@ -384,7 +383,7 @@ const RoomView = () => {
 
       screenStreamRef.current = stream;
 
-      // 1. Set local state
+      // Set local state
       setLocalStream(stream);
       localStreamRef.current = stream;
       replaceVideoTrack(stream);
@@ -400,10 +399,10 @@ const RoomView = () => {
         mediaName: "Host Screen",
       });
 
-      // 2. Handle stream stop (user clicks "Stop Sharing" chrome floating bar)
+      // Handle stream stop (user clicks Stop Sharing chrome floating bar)
       stream.getVideoTracks()[0].onended = handleStopScreen;
 
-      // 3. Register with API
+      // Register with API
       await streamApi.startStream({
         roomId: numericRoomId,
         userId: user.id,
@@ -411,26 +410,24 @@ const RoomView = () => {
         source: "Screen",
       });
 
-      // 🟢 NEW: FORCE CONNECTION TO ALL PARTICIPANTS
-      // We must initiate a WebRTC Offer for every participant so they receive the stream.
-      // Without this, they get the "SCREEN_SHARE" socket message but no video data.
+      // Force connection to all participants
       if (participants && participants.length > 0) {
         participants.forEach((pId) => {
           const pidNum = Number(pId);
           const myId = Number(user.id);
-          const pProfile = profileMap[pId]; // Ensure profileMap is up to date
+          const pProfile = profileMap[pId];
 
           if (pidNum !== myId && pProfile?.username) {
-            console.log(`📡 Offering Screen Share to ${pProfile.username}...`);
+            // console.log(`📡 Offering Screen Share to ${pProfile.username}...`);
             connectToPeer(pProfile.username, stream);
           }
         });
       }
 
-      // 4. Broadcast Signal to Participants
+      // Broadcast Signal to Participants
       sendMessage(roomCode, JSON.stringify({ type: "SCREEN_SHARE" }), "SYNC");
     } catch (e) {
-      console.error("Screen Share Error", e);
+      // console.error("Screen Share Error", e);
       alert("Failed to start screen share. Please check browser permissions.");
     }
   };
@@ -440,11 +437,11 @@ const RoomView = () => {
 
     const normalizedUrl = normalizeYoutubeUrl(url);
     if (!normalizedUrl) {
-      console.warn("Invalid YouTube URL:", url);
+      // console.warn("Invalid YouTube URL:", url);
       return;
     }
 
-    // FIX: Manual Cleanup to avoid sending a "STOP" message
+    // Cleanup active streams
     if (screenStreamRef.current) {
       screenStreamRef.current.getTracks().forEach((t) => t.stop());
       screenStreamRef.current = null;
@@ -461,16 +458,14 @@ const RoomView = () => {
 
     // Stop backend stream if active
     try {
-      // 🟢 FIX: Use 'numericRoomId', NOT 'roomCode'
       if (numericRoomId) {
         await streamApi.stopStream({
-          roomId: numericRoomId, // <--- Was 'roomCode' (String), changed to Numeric ID
+          roomId: numericRoomId,
           userId: user.id,
         });
       }
     } catch (e) {
-      // Ignore error if stream wasn't running
-      console.warn("Stop stream API failed (ignoring):", e);
+      // console.warn("Stop stream API failed (ignoring):", e);
     }
 
     // Update State
@@ -517,7 +512,7 @@ const RoomView = () => {
 
     sendMessage(roomCode, JSON.stringify({ type: "STOP" }), "SYNC");
 
-    // Clear local stream (effectively showing waiting screen)
+    // Clear local stream
     setLocalStream(null);
     localStreamRef.current = null;
     replaceVideoTrack(null);
@@ -526,7 +521,7 @@ const RoomView = () => {
       try {
         await streamApi.stopStream({ roomId: numericRoomId, userId: user.id });
       } catch (e) {
-        console.warn("Stop stream API failed (ignoring):", e);
+        // console.warn("Stop stream API failed (ignoring):", e);
       }
     }
   };
@@ -579,7 +574,7 @@ const RoomView = () => {
         });
         setProfileMap((prev) => ({ ...prev, ...newMap }));
       } catch (err) {
-        console.error("Profile sync failed", err);
+        // console.error("Profile sync failed", err);
       }
     };
     syncProfiles();
@@ -606,9 +601,7 @@ const RoomView = () => {
           Date.now() - lastHeartbeatReceivedAt.current;
 
         if (timeSinceLastHeartbeat > 10000) {
-          console.warn(
-            `⚠️ Host Heartbeat lost for ${timeSinceLastHeartbeat}ms! Resetting to Waiting Room...`
-          );
+          // console.warn(`⚠️ Host Heartbeat lost...`);
 
           setPlayerState((prev) => {
             if (!prev.isYoutube && !prev.isMp4) return prev;
@@ -641,7 +634,7 @@ const RoomView = () => {
       try {
         // Attempt to join the room via API first
         await roomApi.joinRoom(roomCode);
-        console.log("Joined room successfully");
+        // console.log("Joined room successfully");
 
         // If successful, proceed to connect socket and load data
         establishConnection();
@@ -649,20 +642,13 @@ const RoomView = () => {
         const status = error.response?.status;
         const message = error.response?.data?.message?.toLowerCase() || "";
 
-        // 🟢 STRICT CHECK: Only allow if specifically "already joined"
-        // If the message says "full" or "limit reached", we MUST block them.
-        if (status === 409) {
-          if (message.includes("already joined")) {
-            console.log("ℹ️ User already in room, proceeding...");
-            establishConnection();
-          } else {
-            // 🛑 Block "Room Full" (which might also be 409)
-            console.error("⛔ Access Denied (409):", message);
-            alert(message || "Room is full!");
-            navigate("/rooms");
-          }
+        // Allow access if the user is already a member
+        if (status === 409 || message.includes("already joined")) {
+          // console.log("User already in room, proceeding...");
+          establishConnection();
         } else {
-          console.error("⛔ Access Denied:", message);
+          // Reject access for real errors
+          // console.error("Access denied:", message);
           alert(`Cannot join room: ${message || "Access denied"}`);
           navigate("/rooms");
         }
@@ -677,7 +663,7 @@ const RoomView = () => {
           const response = await api.get(`/chat/history/${roomCode}`);
           if (Array.isArray(response.data)) setMessages(response.data);
         } catch (err) {
-          console.error("History failed", err);
+          // console.error("History failed", err);
         }
       };
       loadHistory();
@@ -802,7 +788,7 @@ const RoomView = () => {
                   });
                 }
               } catch (e) {
-                console.error("Failed to parse SYNC payload", e);
+                // console.error("Failed to parse SYNC payload", e);
               }
             } else if (msg.type === "CHAT") {
               setMessages((prev) => {
@@ -864,13 +850,20 @@ const RoomView = () => {
         {hostLeft && (
           <div style={styles.overlay}>
             <div style={styles.overlayContent}>
-              <h2>Room Closed</h2>
-              <p>The host has left the room.</p>
+              <LockKeyIcon
+                size={64}
+                color="#ef4444"
+                weight="duotone"
+                style={{ marginBottom: "20px" }}
+              />
+              <h2 style={{ margin: "0 0 10px 0" }}>Room Closed</h2>
+              <p style={{ margin: "0" }}>The host has left the room.</p>
               <div style={styles.countdown}>{countdown}</div>
               <button
                 onClick={() => navigate("/rooms")}
                 style={styles.overlayBtn}
               >
+                <ArrowUUpLeftIcon size={20} weight="bold" />
                 Return to Lobby
               </button>
             </div>
@@ -926,7 +919,7 @@ const RoomView = () => {
               volume={localVolume}
             />
 
-            {/* Unified Controls Container (Hover Overlay) */}
+            {/* Unified Controls Container */}
             <div
               className="host-controls-wrapper"
               style={{
@@ -960,7 +953,7 @@ const RoomView = () => {
                 </div>
               )}
 
-              {/* Player Controls (Seek bar, Play/Pause, Volume) */}
+              {/* Player Controls */}
               {(playerState.isMp4 || playerState.isYoutube) && (
                 <div style={{ width: "100%", maxWidth: "700px" }}>
                   <PlayerControls
@@ -1022,16 +1015,21 @@ const styles = {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(15, 23, 42, 0.8)",
-    backdropFilter: "blur(10px)",
-    zIndex: 100,
+    backgroundColor: "rgba(15, 23, 42, 0.9)",
+    backdropFilter: "blur(12px)",
+    zIndex: 1000,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     textAlign: "center",
     color: "white",
   },
-  overlayContent: { animation: "fadeIn 0.5s ease" },
+  overlayContent: {
+    animation: "fadeIn 0.5s ease",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+  },
   countdown: {
     fontSize: "5rem",
     fontWeight: "800",
@@ -1040,13 +1038,18 @@ const styles = {
   },
   overlayBtn: {
     marginTop: "20px",
-    padding: "10px 20px",
+    padding: "12px 24px",
     backgroundColor: "#334155",
     color: "white",
     border: "1px solid #475569",
     borderRadius: "8px",
     cursor: "pointer",
     fontSize: "1rem",
+    fontWeight: "600",
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    transition: "background 0.2s",
   },
   controlsSection: {
     padding: "0 20px 20px 20px",
