@@ -22,6 +22,7 @@ import "./room.css";
 
 const RoomView = () => {
   const { roomCode: rawRoomCode } = useParams();
+  // Ensure case-insensitive matching for the room code
   const roomCode = rawRoomCode?.toUpperCase();
   const navigate = useNavigate();
 
@@ -41,7 +42,7 @@ const RoomView = () => {
   // --- WebRTC & Media State ---
   const [localStream, setLocalStream] = useState(null);
 
-  // Player state manages the active media content
+  // Player state manages the active media content (MP4, YouTube, or Screen Share)
   const [playerState, setPlayerState] = useState({
     isPlaying: false,
     isMp4: false,
@@ -52,20 +53,21 @@ const RoomView = () => {
     mediaName: null,
   });
 
-  // Local Audio State
+  // Local Audio State (controls whether the user hears the audio)
   const [isLocalMuted, setIsLocalMuted] = useState(true);
   const [localVolume, setLocalVolume] = useState(0.5);
 
   const localStreamRef = useRef(null);
   const isConnected = useRef(false);
 
-  // Refs
+  // Refs for managing DOM elements and active streams
   const mp4VideoRef = useRef(null);
   const screenStreamRef = useRef(null);
   const fileInputRef = useRef(null);
   const joinSentRef = useRef(false);
   const videoPlayerRef = useRef(null);
 
+  // Custom hook for WebRTC peer connections
   const {
     remoteStreams,
     handleIncomingSignal,
@@ -73,11 +75,15 @@ const RoomView = () => {
     connectToPeer,
   } = useWebRTC(roomCode, user);
 
+  // Track the host's current timestamp and the last heartbeat time for synchronization
   const lastHostTimeRef = useRef(0);
   const lastHeartbeatReceivedAt = useRef(Date.now());
 
   // --- Player Event Handlers ---
+
+  // Handles play actions triggered by the native video player or custom controls
   const handlePlayerPlay = () => {
+    // If Host, broadcast the PLAY command
     if (isHost) {
       if (!playerState.isPlaying) {
         setPlayerState((prev) => ({ ...prev, isPlaying: true }));
@@ -85,7 +91,8 @@ const RoomView = () => {
       }
       return;
     }
-    // Participant Logic
+
+    // If Participant, snap to the host's current time (Live Edge or Heartbeat time)
     if (playerState.isMp4 && videoPlayerRef.current) {
       videoPlayerRef.current.jumpToLive();
     } else if (playerState.isYoutube && videoPlayerRef.current) {
@@ -94,7 +101,9 @@ const RoomView = () => {
     }
   };
 
+  // Handles pause actions triggered by the native video player or custom controls
   const handlePlayerPause = () => {
+    // Only the Host can broadcast a PAUSE command
     if (isHost) {
       if (playerState.isPlaying) {
         setPlayerState((prev) => ({ ...prev, isPlaying: false }));
@@ -104,11 +113,13 @@ const RoomView = () => {
   };
 
   // --- Host Heartbeat Loop ---
+  // Sends synchronization data (time, state) to participants every 2 seconds
   useEffect(() => {
     let interval;
     if (isHost && (playerState.isMp4 || playerState.isYoutube)) {
       interval = setInterval(() => {
         const currentTime = mp4VideoRef.current?.currentTime || 0;
+
         const payload = {
           type: "HEARTBEAT",
           time: currentTime,
@@ -122,18 +133,31 @@ const RoomView = () => {
       }, 2000);
     }
     return () => clearInterval(interval);
-  }, [isHost, playerState, roomCode]);
+  }, [
+    isHost,
+    playerState.isMp4,
+    playerState.isYoutube,
+    playerState.mediaName,
+    playerState.isPlaying,
+    playerState.youtubeUrl,
+    roomCode,
+  ]);
 
   // --- Stream Selection Logic ---
   const hostProfile = profileMap[hostId];
   const hostUsername = hostProfile?.username;
+
+  // Determine which stream to display in the VideoPlayer
   const activeStream = isHost
     ? localStream
     : (hostUsername && remoteStreams.get(hostUsername)) ||
+      // Fallback: If host username isn't mapped yet, take the first available stream
       (remoteStreams.size > 0 ? remoteStreams.values().next().value : null);
 
-  // --- Playback Handlers ---
+  // --- Playback Control Handlers (Pause, Stop, Seek) ---
+
   const handlePlayPause = () => {
+    // YouTube specific handling via ReactPlayer ref
     if (playerState.isYoutube && videoPlayerRef.current) {
       const nextPlaying = !playerState.isPlaying;
       if (nextPlaying) {
@@ -147,17 +171,19 @@ const RoomView = () => {
       }
       return;
     }
+
+    // Native Video Element (MP4) handling
     const video = mp4VideoRef.current;
-    if (video) {
-      if (video.paused) {
-        video.play();
-        setPlayerState((prev) => ({ ...prev, isPlaying: true }));
-        sendMessage(roomCode, JSON.stringify({ type: "PLAY" }), "SYNC");
-      } else {
-        video.pause();
-        setPlayerState((prev) => ({ ...prev, isPlaying: false }));
-        sendMessage(roomCode, JSON.stringify({ type: "PAUSE" }), "SYNC");
-      }
+    if (!video) return;
+
+    if (video.paused) {
+      video.play();
+      setPlayerState((prev) => ({ ...prev, isPlaying: true }));
+      sendMessage(roomCode, JSON.stringify({ type: "PLAY" }), "SYNC");
+    } else {
+      video.pause();
+      setPlayerState((prev) => ({ ...prev, isPlaying: false }));
+      sendMessage(roomCode, JSON.stringify({ type: "PAUSE" }), "SYNC");
     }
   };
 
@@ -212,15 +238,19 @@ const RoomView = () => {
       const { video, stream } = await createMp4Stream(file);
       mp4VideoRef.current = video;
 
+      // Bind video events to update local state
       video.ontimeupdate = () => {
         setPlayerState((prev) => ({ ...prev, currentTime: video.currentTime }));
       };
+
       video.onloadedmetadata = () => {
         setPlayerState((prev) => ({ ...prev, duration: video.duration }));
       };
+
       video.onended = () =>
         setPlayerState((prev) => ({ ...prev, isPlaying: false }));
 
+      // Set the stream as local stream for WebRTC broadcasting
       setLocalStream(stream);
       localStreamRef.current = stream;
       replaceVideoTrack(stream);
@@ -234,15 +264,18 @@ const RoomView = () => {
         mediaName: file.name,
       });
 
+      // Broadcast LOAD and PLAY commands
       sendMessage(
         roomCode,
         JSON.stringify({ type: "LOAD", filename: file.name }),
         "SYNC"
       );
+
       setTimeout(() => {
         sendMessage(roomCode, JSON.stringify({ type: "PLAY" }), "SYNC");
       }, 500);
 
+      // Register stream with backend
       await streamApi.startStream({
         roomId: numericRoomId,
         userId: user.id,
@@ -250,11 +283,33 @@ const RoomView = () => {
         source: file.name,
       });
 
+      // Connect to existing participants if necessary
       const currentProfiles = { ...profileMap };
+      const missingIds = participants.filter((pId) => !currentProfiles[pId]);
+
+      if (missingIds.length > 0) {
+        try {
+          const fetchedProfiles = await userApi.getUsersBatch(
+            missingIds.map(Number)
+          );
+          fetchedProfiles.forEach((p) => {
+            currentProfiles[p.userId] = p;
+          });
+          setProfileMap((prev) => ({ ...prev, ...currentProfiles }));
+        } catch (e) {
+          console.error("Profile fetch failed:", e);
+        }
+      }
+
       if (participants && participants.length > 0) {
         participants.forEach((pId) => {
+          const pidNum = Number(pId);
+          const myId = Number(user.id);
           const pProfile = currentProfiles[pId];
-          if (pProfile?.username) connectToPeer(pProfile.username, stream);
+
+          if (pidNum !== myId && pProfile?.username) {
+            connectToPeer(pProfile.username, stream);
+          }
         });
       }
     } catch (e) {
@@ -289,22 +344,31 @@ const RoomView = () => {
         type: "SCREEN",
         source: "Screen",
       });
+      await streamApi.startStream({
+        roomId: numericRoomId,
+        userId: user.id,
+        type: "SCREEN",
+        source: "Screen",
+      });
     } catch (e) {
       console.error("Screen Share Error", e);
     }
   };
 
+  // Helper to normalize different YouTube URL formats
   const normalizeYoutubeUrl = (input) => {
     const raw = typeof input === "string" ? input.trim() : "";
     if (!raw) return null;
     let videoId = null;
     try {
+      // youtu.be/VIDEO_ID
       const shortMatch = raw.match(
         /(?:youtu\.be\/)([A-Za-z0-9_-]{11})(?:\?|$)/
       );
       if (shortMatch) {
         videoId = shortMatch[1];
       } else {
+        // youtube.com/watch?v=VIDEO_ID or embed/VIDEO_ID
         const watchMatch = raw.match(/(?:v=|\/embed\/)([A-Za-z0-9_-]{11})/);
         if (watchMatch) videoId = watchMatch[1];
       }
@@ -347,6 +411,7 @@ const RoomView = () => {
 
     const hasActiveStream = !!screenStreamRef.current || !!mp4VideoRef.current;
 
+    // Stop tracks for any active streams
     if (screenStreamRef.current) {
       screenStreamRef.current.getTracks().forEach((t) => t.stop());
       screenStreamRef.current = null;
@@ -366,41 +431,44 @@ const RoomView = () => {
 
     sendMessage(roomCode, JSON.stringify({ type: "STOP" }), "SYNC");
 
-    // Clear local stream
+    // Clear local stream (effectively showing waiting screen)
     setLocalStream(null);
     localStreamRef.current = null;
-
-    // 🟢 CRITICAL FIX: DO NOT CALL replaceVideoTrack(null).
-    // It causes useWebRTC to crash because it tries to read properties of null.
-    // Since we are stopping, we don't need to replace the track with anything.
-    // replaceVideoTrack(null); <--- REMOVED
+    replaceVideoTrack(null);
 
     if (hasActiveStream) {
       try {
         await streamApi.stopStream({ roomId: roomCode, userId: user.id });
       } catch (e) {
-        console.warn("Stop stream API failed", e);
+        console.warn("Stop stream API failed (ignoring):", e);
       }
     }
   };
 
   // --- Effects ---
+
+  // Handle User Auth State
   useEffect(() => {
-    const handleUserUpdate = () => setUser(authUtils.getUser());
+    const handleUserUpdate = () => {
+      setUser(authUtils.getUser());
+    };
     window.addEventListener("user-updated", handleUserUpdate);
+
     const handleBeforeUnload = (e) => {
       if (isHost && (playerState.isMp4 || playerState.isYoutube)) {
         e.preventDefault();
-        e.returnValue = "Leaving will stop playback. Are you sure?";
+        e.returnValue =
+          "You are hosting a stream. Leaving will stop playback. Are you sure?";
         return e.returnValue;
       }
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
+
     return () => {
       window.removeEventListener("user-updated", handleUserUpdate);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [isHost, playerState]);
+  }, [isHost, playerState.isMp4, playerState.isYoutube]);
 
   const handleLogout = () => {
     authUtils.clearAuth();
@@ -408,11 +476,14 @@ const RoomView = () => {
     navigate("/login");
   };
 
+  // Sync Profiles for all participants to map IDs to Usernames
   useEffect(() => {
     const syncProfiles = async () => {
       const uniqueIds = new Set(participants.map((id) => Number(id)));
       if (hostId) uniqueIds.add(Number(hostId));
+
       if (uniqueIds.size === 0) return;
+
       try {
         const userIds = Array.from(uniqueIds);
         const profiles = await userApi.getUsersBatch(userIds);
@@ -422,12 +493,13 @@ const RoomView = () => {
         });
         setProfileMap((prev) => ({ ...prev, ...newMap }));
       } catch (err) {
-        console.error(err);
+        console.error("Profile sync failed", err);
       }
     };
     syncProfiles();
   }, [participants, hostId]);
 
+  // Handle Host Leaving
   useEffect(() => {
     let timer;
     if (hostLeft && countdown > 0) {
@@ -438,14 +510,20 @@ const RoomView = () => {
     return () => clearInterval(timer);
   }, [hostLeft, countdown, navigate]);
 
+  // Watchdog: Monitor heartbeat from host to detect disconnects
   useEffect(() => {
     if (isHost) return;
+
     const checkInterval = setInterval(() => {
       if (playerState.isYoutube || playerState.isMp4) {
         const timeSinceLastHeartbeat =
           Date.now() - lastHeartbeatReceivedAt.current;
+
         if (timeSinceLastHeartbeat > 10000) {
-          console.warn("Host Heartbeat lost");
+          console.warn(
+            `⚠️ Host Heartbeat lost for ${timeSinceLastHeartbeat}ms! Resetting to Waiting Room...`
+          );
+
           setPlayerState((prev) => {
             if (!prev.isYoutube && !prev.isMp4) return prev;
             return {
@@ -454,40 +532,61 @@ const RoomView = () => {
               isMp4: false,
               isYoutube: false,
               youtubeUrl: null,
+              mediaName: null,
             };
           });
           lastHeartbeatReceivedAt.current = Date.now();
         }
       }
     }, 2000);
-    return () => clearInterval(checkInterval);
-  }, [isHost, playerState]);
 
+    return () => clearInterval(checkInterval);
+  }, [isHost, playerState.isYoutube, playerState.isMp4]);
+
+  // Initial Room Setup (Join, History, Check Host, Socket)
   useEffect(() => {
     if (!authUtils.isAuthenticated()) {
       navigate("/login");
       return;
     }
 
-    roomApi.joinRoom(roomCode).catch((e) => {
-      if (e.response?.status !== 409) console.error(e);
-    });
+    const joinRoomOnLoad = async () => {
+      try {
+        await roomApi.joinRoom(roomCode);
+        console.log("Joined room successfully on load");
+      } catch (error) {
+        if (
+          error.response &&
+          error.response.status !== 409 &&
+          error.response.data?.message !== "User already joined this room"
+        ) {
+          console.error("Failed to auto-join room:", error);
+        }
+      }
+    };
+    joinRoomOnLoad();
 
-    api
-      .get(`/chat/history/${roomCode}`)
-      .then((res) => {
-        if (Array.isArray(res.data)) setMessages(res.data);
-      })
-      .catch(console.error);
+    const loadHistory = async () => {
+      try {
+        const response = await api.get(`/chat/history/${roomCode}`);
+        if (Array.isArray(response.data)) setMessages(response.data);
+      } catch (err) {
+        console.error("History failed", err);
+      }
+    };
+    loadHistory();
 
-    const checkHostStatus = async (retry = 0) => {
+    const checkHostStatus = async (retryCount = 0) => {
       try {
         const details = await roomApi.getRoomDetails(roomCode);
         setHostId(details.hostUserId);
         setNumericRoomId(details.roomId);
-        if (user && details.hostUserId == user.id) setIsHost(true);
+        if (user && details.hostUserId == user.id) {
+          setIsHost(true);
+        }
       } catch (error) {
-        if (retry < 2) setTimeout(() => checkHostStatus(retry + 1), 1000);
+        if (retryCount < 2)
+          setTimeout(() => checkHostStatus(retryCount + 1), 1000);
       }
     };
     checkHostStatus();
@@ -502,6 +601,8 @@ const RoomView = () => {
             try {
               const action = JSON.parse(msg.content);
               lastHeartbeatReceivedAt.current = Date.now();
+
+              // Handle Synchronization Commands from Host
               if (action.type === "PAUSE") {
                 videoPlayerRef.current?.pause();
                 setPlayerState((prev) => ({ ...prev, isPlaying: false }));
@@ -518,7 +619,7 @@ const RoomView = () => {
                 }));
               } else if (action.type === "LOAD_YOUTUBE") {
                 const url = normalizeYoutubeUrl(action.url) || action.url;
-                if (url)
+                if (url) {
                   setPlayerState((prev) => ({
                     ...prev,
                     isMp4: false,
@@ -527,6 +628,7 @@ const RoomView = () => {
                     mediaName: "YouTube Video",
                     isPlaying: true,
                   }));
+                }
               } else if (action.type === "STOP") {
                 setPlayerState((prev) => ({
                   ...prev,
@@ -539,21 +641,27 @@ const RoomView = () => {
               } else if (action.type === "HEARTBEAT") {
                 lastHostTimeRef.current = action.time;
                 lastHeartbeatReceivedAt.current = Date.now();
+
                 setPlayerState((prev) => {
                   let newState = { ...prev };
                   let hasChanged = false;
+
+                  // Enforce Youtube State if Host dictates
                   if (!isHost && action.isYoutube && action.youtubeUrl) {
-                    const nUrl =
+                    const normalizedUrl =
                       normalizeYoutubeUrl(action.youtubeUrl) ||
                       action.youtubeUrl;
-                    if (!prev.isYoutube || prev.youtubeUrl !== nUrl) {
+
+                    if (!prev.isYoutube || prev.youtubeUrl !== normalizedUrl) {
                       newState.isYoutube = true;
                       newState.isMp4 = false;
-                      newState.youtubeUrl = nUrl;
-                      newState.mediaName = "YouTube Video";
+                      newState.youtubeUrl = normalizedUrl;
+                      newState.mediaName = action.mediaName || "YouTube Video";
                       hasChanged = true;
                     }
-                  } else if (!isHost && action.isMp4) {
+                  }
+                  // Enforce MP4 State if Host dictates
+                  else if (!isHost && action.isMp4) {
                     if (!prev.isMp4 || prev.mediaName !== action.mediaName) {
                       newState.isMp4 = true;
                       newState.isYoutube = false;
@@ -561,6 +669,8 @@ const RoomView = () => {
                       hasChanged = true;
                     }
                   }
+
+                  // Enforce Play/Pause State
                   if (
                     action.isPlaying !== undefined &&
                     action.isPlaying !== prev.isPlaying
@@ -568,14 +678,18 @@ const RoomView = () => {
                     newState.isPlaying = action.isPlaying;
                     hasChanged = true;
                   }
+
                   return hasChanged ? newState : prev;
                 });
               }
             } catch (e) {
-              console.error(e);
+              console.error("Failed to parse SYNC payload", e);
             }
-          } else if (msg.type === "CHAT") {
+          }
+          // Handle Chat Messages
+          else if (msg.type === "CHAT") {
             setMessages((prev) => {
+              // Deduplicate logic to prevent double messages
               const isDuplicate = prev.some(
                 (m) =>
                   (m.id && m.id === msg.id) ||
@@ -586,23 +700,29 @@ const RoomView = () => {
                         new Date(msg.timestamp).getTime()
                     ) < 1000)
               );
+
               if (isDuplicate) return prev;
               return [...prev, msg];
             });
           }
         },
-        setParticipants,
+        (users) => {
+          setParticipants(users);
+        },
         (signal) => handleIncomingSignal(signal, localStreamRef.current)
       );
+
+      // Send Join Signal to initialize WebRTC connection
       if (!joinSentRef.current) {
         joinSentRef.current = true;
         setTimeout(() => {
-          import("../../socket/roomSocket").then(({ sendSignal }) =>
-            sendSignal(roomCode, "join", {})
-          );
+          import("../../socket/roomSocket").then(({ sendSignal }) => {
+            sendSignal(roomCode, "join", {});
+          });
         }, 1500);
       }
     }
+
     return () => {
       isConnected.current = false;
       disconnectSocket();
@@ -620,22 +740,24 @@ const RoomView = () => {
         isHost={isHost}
         disableProfileLink={true}
       />
+
       <div className="room-container">
         {hostLeft && (
           <div style={styles.overlay}>
             <div style={styles.overlayContent}>
               <h2>Room Closed</h2>
-              <p>Host left.</p>
+              <p>The host has left the room.</p>
               <div style={styles.countdown}>{countdown}</div>
               <button
                 onClick={() => navigate("/rooms")}
                 style={styles.overlayBtn}
               >
-                Return
+                Return to Lobby
               </button>
             </div>
           </div>
         )}
+
         <div className="main-content">
           <div
             className="video-section"
@@ -676,6 +798,8 @@ const RoomView = () => {
               muted={isLocalMuted}
               volume={localVolume}
             />
+
+            {/* Unified Controls Container (Hover Overlay) */}
             <div
               className="host-controls-wrapper"
               style={{
@@ -696,6 +820,7 @@ const RoomView = () => {
                 zIndex: 50,
               }}
             >
+              {/* Host Control Panel */}
               {isHost && (
                 <div style={{ width: "100%", maxWidth: "700px" }}>
                   <HostControls
@@ -707,6 +832,8 @@ const RoomView = () => {
                   />
                 </div>
               )}
+
+              {/* Player Controls (Seek bar, Play/Pause, Volume) */}
               {(playerState.isMp4 || playerState.isYoutube) && (
                 <div style={{ width: "100%", maxWidth: "700px" }}>
                   <PlayerControls
@@ -734,6 +861,7 @@ const RoomView = () => {
             </div>
           </div>
         </div>
+
         <div className="sidebar">
           <div className="participants-section">
             <ParticipantList
@@ -792,6 +920,12 @@ const styles = {
     borderRadius: "8px",
     cursor: "pointer",
     fontSize: "1rem",
+  },
+  controlsSection: {
+    padding: "0 20px 20px 20px",
+    backgroundColor: "#020617",
+    borderBottomLeftRadius: "12px",
+    borderBottomRightRadius: "12px",
   },
 };
 

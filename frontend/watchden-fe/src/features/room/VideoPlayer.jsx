@@ -7,6 +7,8 @@ import React, {
 } from "react";
 import ReactPlayer from "react-player";
 
+/* --- Icons --- */
+
 const FullscreenIcon = () => (
   <svg height="100%" version="1.1" viewBox="0 0 36 36" width="100%">
     <path
@@ -38,37 +40,32 @@ const VideoPlayer = forwardRef(
       isPlaying,
       onPlay,
       onPause,
+      onProgress,
       muted,
       volume,
     },
     ref
   ) => {
-    // --- 1. HOOKS & STATE (Must be at the top) ---
-    useEffect(() => {
-      console.log("🎥 VideoPlayer Props Update:", {
-        isYoutube,
-        youtubeUrl,
-        isMp4,
-        isPlaying,
-      });
-    }, [isYoutube, youtubeUrl, isMp4, isPlaying, stream]);
+    // --- State Management ---
+    const [playing, setPlaying] = useState(false);
+    const [showOverlay, setShowOverlay] = useState(false);
+    const [showPlayOverlay, setShowPlayOverlay] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [isValidStream, setIsValidStream] = useState(true);
 
-    console.log("🎥 VideoPlayer Render:", {
-      isYoutube,
-      youtubeUrl,
-      isMp4,
-      streamId: stream?.id,
-      isPlaying,
-    });
-    const [playing, setPlaying] = useState(isPlaying || false); // Initialize from prop
+    // --- References ---
+    const videoRef = useRef(null);
+    const reactPlayerRef = useRef(null);
+    const playerWrapperRef = useRef(null);
 
-    // Sync prop changes to local state
+    // --- Synchronization Effects ---
+
+    // Synchronize local playing state with the parent prop
     useEffect(() => {
-      console.log("🎥 VideoPlayer: Syncing isPlaying prop:", isPlaying);
       setPlaying(isPlaying);
     }, [isPlaying]);
 
-    // 🟢 Sync Volume for Native Video
+    // Synchronize volume and mute state for the native video element
     useEffect(() => {
       if (videoRef.current) {
         videoRef.current.volume = volume;
@@ -76,44 +73,7 @@ const VideoPlayer = forwardRef(
       }
     }, [volume, muted]);
 
-    const [showOverlay, setShowOverlay] = useState(false);
-    const [showPlayOverlay, setShowPlayOverlay] = useState(false);
-
-    // Ref for the native video element
-    const videoRef = useRef(null);
-    // Ref for ReactPlayer (YouTube)
-    const reactPlayerRef = useRef(null);
-    // 🟢 Ref for Fullscreen Wrapper
-    const playerWrapperRef = useRef(null);
-    const [isFullscreen, setIsFullscreen] = useState(false);
-
-    // 🟢 Helper: Toggle Fullscreen
-    const toggleFullscreen = () => {
-      if (!document.fullscreenElement) {
-        playerWrapperRef.current?.requestFullscreen().catch((err) => {
-          console.error(
-            `Error attempting to enable fullscreen: ${err.message}`
-          );
-        });
-        setIsFullscreen(true);
-      } else {
-        document.exitFullscreen();
-        setIsFullscreen(false);
-      }
-    };
-
-    // Listen to change (to update icon if user exits via Esc)
-    useEffect(() => {
-      const handleFsChange = () =>
-        setIsFullscreen(!!document.fullscreenElement);
-      document.addEventListener("fullscreenchange", handleFsChange);
-      return () =>
-        document.removeEventListener("fullscreenchange", handleFsChange);
-    }, []);
-
-    // --- 2. EFFECTS ---
-
-    // Show overlay when mediaName changes, hide after 3s
+    // Display media name overlay briefly when the content changes
     useEffect(() => {
       if (mediaName) {
         setShowOverlay(true);
@@ -122,37 +82,45 @@ const VideoPlayer = forwardRef(
       }
     }, [mediaName]);
 
-    // 🟢 Internal Helper for Snap-to-Live
+    // --- Helper Functions ---
+
+    const toggleFullscreen = () => {
+      if (!document.fullscreenElement) {
+        playerWrapperRef.current
+          ?.requestFullscreen()
+          .catch((err) => console.error(err));
+        setIsFullscreen(true);
+      } else {
+        document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    };
+
+    // Listen for fullscreen changes (e.g., user pressing Escape)
+    useEffect(() => {
+      const handleFsChange = () =>
+        setIsFullscreen(!!document.fullscreenElement);
+      document.addEventListener("fullscreenchange", handleFsChange);
+      return () =>
+        document.removeEventListener("fullscreenchange", handleFsChange);
+    }, []);
+
+    // Jumps to the latest buffered frame. Useful for syncing participants to a live stream.
     const jumpToLiveInternal = () => {
       const vid = videoRef.current;
       if (vid && vid.buffered.length > 0) {
-        // Jump to the very end of the buffered range (Live Edge)
         try {
           vid.currentTime = vid.buffered.end(vid.buffered.length - 1);
         } catch (e) {
-          console.log("Jump to live failed", e);
+          console.error("Failed to jump to live edge", e);
         }
       }
     };
 
-    // Expose methods to Parent via Ref
+    // --- Imperative Handle (Expose methods to Parent) ---
     useImperativeHandle(ref, () => ({
-      pause: () => {
-        if (isYoutube && reactPlayerRef.current) {
-          setPlaying(false); // Update ReactPlayer playing prop proxy
-        } else if (videoRef.current) {
-          videoRef.current.pause();
-        }
-      },
-      play: () => {
-        if (isYoutube && reactPlayerRef.current) {
-          setPlaying(true);
-        } else if (videoRef.current) {
-          videoRef.current
-            .play()
-            .catch((e) => console.log("Play interrupted", e));
-        }
-      },
+      pause: () => setPlaying(false),
+      play: () => setPlaying(true),
       seek: (time) => {
         if (isYoutube && reactPlayerRef.current) {
           reactPlayerRef.current.seekTo(time, "seconds");
@@ -160,82 +128,36 @@ const VideoPlayer = forwardRef(
           videoRef.current.currentTime = time;
         }
       },
-      // YouTube doesn't really have "Jump to Live" in this context unless it's a livestream,
-      // but for MP4 we use the internal helper.
       jumpToLive: jumpToLiveInternal,
     }));
 
-    const [isValidStream, setIsValidStream] = useState(true);
-
-    // Auto-play WebRTC stream when it changes
+    // --- Stream Autoplay Logic ---
     useEffect(() => {
-      // Only run this logic if we are NOT in YouTube mode
       if (isYoutube) return;
-
-      const vid = videoRef.current;
-
-      // 🟢 Reset valid state to TRUE whenever the stream reference updates
-      console.log("🎥 VideoPlayer Effect: Stream changed:", stream?.id);
       setIsValidStream(!!stream);
 
-      if (stream) {
-        const track = stream.getVideoTracks()[0];
+      const vid = videoRef.current;
+      if (stream && vid) {
+        vid.srcObject = stream;
 
-        const handleTrackEnded = () => {
-          console.log("❌ Stream Track Ended");
-          setIsValidStream(false);
-        };
-
-        if (track) {
-          track.addEventListener("ended", handleTrackEnded);
-
-          // Check immediate state
-          if (track.readyState === "ended") {
-            console.warn("⚠️ Stream Track is already ENDED on mount");
-            setIsValidStream(false);
-          } else {
-            setIsValidStream(true); // Confirm it is valid
-          }
+        // Ensure the video element is connected to the DOM before attempting playback
+        if (vid.isConnected) {
+          vid.play().catch((e) => {
+            console.error("Autoplay failed:", e);
+            // If the browser blocks audio/autoplay, show the Click-to-Play overlay
+            if (e.name === "NotAllowedError") setShowPlayOverlay(true);
+          });
         }
-
-        console.log("🎥 Attaching Stream:", stream.id);
-        if (vid) {
-          vid.srcObject = stream;
-
-          // 🟢 FIX: Only play if element is actually in the DOM to avoid AbortError on unmount
-          if (vid.isConnected) {
-            vid.play().catch((e) => {
-              // Ignore AbortError (interrupted by unmount/load)
-              if (e.name === "AbortError" || e.message.includes("interrupted"))
-                return;
-
-              console.error("Autoplay failed", e);
-              if (e.name === "NotAllowedError") {
-                setShowPlayOverlay(true);
-              }
-            });
-          }
-        }
-
-        return () => {
-          if (track) {
-            track.removeEventListener("ended", handleTrackEnded);
-          }
-          // 🟢 Cleanup: Stop video to prevent AbortErrors when switching to YouTube
-          if (vid) {
-            vid.pause();
-            vid.removeAttribute("src"); // Helper to clean up
-            vid.load(); // Reset
-          }
-        };
       }
     }, [stream, isYoutube]);
 
-    // --- 3. RENDER ---
+    // --- Render Logic ---
 
-    // 🟢 1. YOUTUBE PLAYER MODE — react-player 3.x uses "src" prop, not "url"
+    // 1. YouTube Player Mode
+    // ReactPlayer requires 'url' instead of 'src'
     const effectiveYoutubeUrl =
       typeof youtubeUrl === "string" ? youtubeUrl.trim() : "";
+
     if (isYoutube && effectiveYoutubeUrl) {
       return (
         <div
@@ -246,23 +168,39 @@ const VideoPlayer = forwardRef(
           <div style={styles.playerContainer}>
             <ReactPlayer
               ref={reactPlayerRef}
-              src={effectiveYoutubeUrl}
+              url={effectiveYoutubeUrl}
               playing={playing}
-              muted={muted} // 🟢 Use Prop
-              volume={volume} // 🟢 Use Prop
+              muted={muted}
+              volume={volume}
               playsInline={true}
-              controls={isHost} // 🟢 HOST ONLY controls
+              controls={false} // Native controls are hidden; custom controls are used
               width="100%"
               height="100%"
               onError={(e) => console.error("YouTube Player Error:", e)}
-              onReady={() => console.log("✅ YouTube Player Ready")}
-              onStart={() => console.log("▶ YouTube Player Started")}
-              onProgress={() => {}}
+              onStart={() => {
+                if (isPlaying) setPlaying(true);
+              }}
+              onProgress={(progress) => {
+                if (onProgress) onProgress(progress.playedSeconds);
+              }}
             />
           </div>
-          <div style={styles.liveBadge}>● YouTube Live</div>
 
-          {/* 🟢 INTERACTION SHIELD: Block clicks for Participants so they can't Pause/Seek via YouTube Click */}
+          <div style={styles.liveBadge}>● YouTube</div>
+
+          {/* Click-to-Start Overlay for Autoplay Blocks */}
+          {isPlaying && !playing && (
+            <div style={styles.playOverlay}>
+              <button
+                style={styles.bigPlayBtn}
+                onClick={() => setPlaying(true)}
+              >
+                ▶ Click to Start
+              </button>
+            </div>
+          )}
+
+          {/* Interaction Shield: Prevents participants from clicking the iframe directly */}
           {!isHost && (
             <div
               style={{
@@ -271,18 +209,18 @@ const VideoPlayer = forwardRef(
                 left: 0,
                 width: "100%",
                 height: "100%",
-                zIndex: 10, // Above ReactPlayer
-                background: "transparent", // Invisible
+                zIndex: 10,
+                background: "transparent",
                 cursor: "default",
               }}
               onClick={(e) => {
                 e.stopPropagation();
-                console.log("🛡️ Shield blocked interaction");
+                // Allow click to sync play state if stuck
+                setPlaying(true);
               }}
             />
           )}
 
-          {/* 🟢 FULLSCREEN BUTTON (All Users) */}
           <button
             onClick={toggleFullscreen}
             style={styles.fsBtn}
@@ -294,8 +232,7 @@ const VideoPlayer = forwardRef(
       );
     }
 
-    // 🟢 2. MP4 / STREAM PLAYER MODE
-    // Waiting for Stream / Stream Disconnected
+    // 2. MP4 / Stream Player Mode (Waiting State)
     if (isMp4 && (!stream || !isValidStream)) {
       return (
         <div
@@ -303,13 +240,12 @@ const VideoPlayer = forwardRef(
           style={styles.wrapper}
           ref={playerWrapperRef}
         >
-          {/* Blurred Background with Message */}
           <div
             style={{
               ...styles.playerContainer,
               color: "white",
               backgroundColor: "#000",
-              backgroundImage: "url(/assets/placeholder_blur.jpg)", // Optional: You could use a generic poster if available
+              backgroundImage: "url(/assets/placeholder_blur.jpg)",
               backgroundSize: "cover",
             }}
           >
@@ -342,7 +278,7 @@ const VideoPlayer = forwardRef(
       );
     }
 
-    // If a WebRTC stream exists (Host is streaming), show the VIDEO tag
+    // 3. Active Stream / MP4 Mode
     if (stream && isValidStream) {
       return (
         <div
@@ -351,28 +287,18 @@ const VideoPlayer = forwardRef(
           ref={playerWrapperRef}
         >
           <div style={styles.playerContainer}>
-            {/* 🔴 LIVE STREAM VIEW */}
             <video
               ref={videoRef}
               autoPlay
               playsInline
-              // 🟢 ENABLE CONTROLS FOR VIEWERS (Force off for everyone, use custom controls or overlay)
-              controls={false} // Disable native controls everywhere, we have custom volume now (or native will conflict)
-              // Wait, for MP4, native controls are nice.
-              // But user asked for progress bar "on other user also but he cannot touch". Native controls allow touch.
-              // So we MUST disable native controls for ALL PARTICIPANTS for MP4 too.
-              // For Host, we can keep them or use custom.
-
+              controls={false} // Native controls are disabled in favor of custom UI
               onPlay={onPlay}
-              muted={muted} // 🟢 Local Mute
-              // volume={volume} // video tag doesn't take volume prop directly in React perfectly, use Ref effect?
-              // Actually simple way: useEffect to set volume on ref.
+              muted={muted}
               style={{ width: "100%", height: "100%", objectFit: "contain" }}
             />
-            {/* Overlay Badge */}
             <div style={styles.liveBadge}>● LIVE</div>
 
-            {/* 🟢 Click to Play Overlay (Fixes NotAllowedError) */}
+            {/* Click-to-Watch Overlay for Autoplay Blocks */}
             {showPlayOverlay && (
               <div style={styles.playOverlay}>
                 <button
@@ -381,7 +307,6 @@ const VideoPlayer = forwardRef(
                     if (videoRef.current) {
                       videoRef.current.play();
                       setShowPlayOverlay(false);
-                      // Also jump to live to ensure sync
                       jumpToLiveInternal();
                     }
                   }}
@@ -391,12 +316,11 @@ const VideoPlayer = forwardRef(
               </div>
             )}
 
-            {/* 🟢 Media Name Overlay (Thumbnail effect) */}
+            {/* Media Name Toast */}
             {showOverlay && mediaName && (
               <div style={styles.mediaOverlay}>🎥 Playing: {mediaName}</div>
             )}
 
-            {/* 🟢 FULLSCREEN BUTTON (All Users) */}
             <button
               onClick={toggleFullscreen}
               style={styles.fsBtn}
@@ -409,7 +333,7 @@ const VideoPlayer = forwardRef(
       );
     }
 
-    // Default: Empty / Placeholder
+    // 4. Default Placeholder State
     return (
       <div className="player-wrapper" style={styles.wrapper}>
         <div style={{ ...styles.playerContainer, backgroundColor: "#1e293b" }}>
@@ -425,8 +349,7 @@ const VideoPlayer = forwardRef(
 const styles = {
   wrapper: {
     width: "100%",
-    // height: "100%",  <-- REMOVE this line if you haven't already (from previous fix)
-    flex: 1, // Allow flex growth
+    flex: 1,
     display: "flex",
     flexDirection: "column",
     backgroundColor: "#020617",
@@ -438,29 +361,26 @@ const styles = {
   playerContainer: {
     flex: 1,
     width: "100%",
-    height: "100%", // 🟢 Explicit height to prevent collapse
+    height: "100%",
     backgroundColor: "black",
     position: "relative",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: "0", // Important for Flexbox
+    minHeight: "0",
   },
   liveBadge: {
     position: "absolute",
     top: "16px",
     left: "16px",
-    backgroundColor: "transparent", // 🟢 Transparent
-    color: "#FF0000", // 🟢 Red Text
-    padding: "2px 6px",
-    fontSize: "1rem", // Slightly larger
+    backgroundColor: "rgba(0,0,0,0.6)",
+    borderRadius: "4px",
+    color: "#FF0000",
+    padding: "4px 8px",
+    fontSize: "0.9rem",
     fontWeight: "bold",
-    letterSpacing: "0.5px",
-    textShadow: "0 1px 2px rgba(0,0,0,0.8)", // Shadow for visibility
     pointerEvents: "none",
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
+    zIndex: 20,
   },
   mediaOverlay: {
     position: "absolute",
@@ -473,6 +393,7 @@ const styles = {
     borderRadius: "20px",
     fontSize: "0.9rem",
     pointerEvents: "none",
+    zIndex: 20,
   },
   playOverlay: {
     position: "absolute",
@@ -484,11 +405,11 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 20,
+    zIndex: 30,
   },
   bigPlayBtn: {
     padding: "16px 32px",
-    fontSize: "1.5rem",
+    fontSize: "1.2rem",
     backgroundColor: "#6366f1",
     color: "white",
     border: "none",
@@ -500,22 +421,23 @@ const styles = {
   },
   fsBtn: {
     position: "absolute",
-    top: "16px", // 🟢 CHANGED: Move from bottom to top
-    right: "16px", // 🟢 CHANGED: Add spacing to match Live Badge
-    background: "rgba(0, 0, 0, 0.5)", // 🟢 ADDED: Semi-transparent background for visibility
+    top: "16px",
+    right: "16px",
+    background: "rgba(0, 0, 0, 0.5)",
+    borderRadius: "8px",
     color: "white",
-    border: "1px solid rgba(255, 255, 255, 0.2)", // 🟢 ADDED: Subtle border
+    border: "1px solid rgba(255, 255, 255, 0.2)",
     width: "40px",
     height: "40px",
     cursor: "pointer",
-    zIndex: 100, // 🟢 INCREASED: Ensure it sits above everything
+    zIndex: 100,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     padding: "8px",
     opacity: 0.9,
     transition: "all 0.2s ease",
-    backdropFilter: "blur(4px)", // 🟢 ADDED: Blur effect like your other controls
+    backdropFilter: "blur(4px)",
   },
 };
 
