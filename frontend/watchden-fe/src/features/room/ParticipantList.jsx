@@ -37,20 +37,18 @@ const ParticipantList = ({ participants = [], profileMap = {} }) => {
 
               // Avatar component handles the fallback logic internally
               return (
-                <div key={index} className="participant-item">
+                <div key={index} className="participant-item" style={{ display: "flex", alignItems: "center", padding: "8px 0" }}>
                   <Avatar
                     src={profile?.avatarUrl}
                     name={displayName}
                     size="sm"
                     className="participant-avatar-sm"
                   />
-                  <div className="participant-info">
-                    <span className="participant-name">
+                  {/* 🟢 Simplified Layout: Avatar + Display Name side-by-side */}
+                  <div className="participant-info" style={{ display: 'flex', alignItems: 'center', marginLeft: '10px' }}>
+                    <span className="participant-name" style={{ fontSize: '0.9rem', color: '#e2e8f0' }}>
                       {displayName}
                     </span>
-                    {profile?.username && (
-                      <span className="participant-username">@{profile.username}</span>
-                    )}
                   </div>
                   <span className="status-dot-online"></span>
                 </div>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { authApi } from "../../api/auth.api";
+import { userApi } from "../../api/user.api"; // 🟢 Import userApi
 import { authUtils } from "./auth.utils"; // 🟢 Import your utils
 
 export const useAuth = () => {
@@ -17,12 +18,26 @@ export const useAuth = () => {
       // API Call
       const data = await authApi.login(credentials);
 
+      // 🟢 1.5 FIX: If Login Response is slim (missing avatar), Fetch Full Profile
+      let fullProfile = {};
+      if (data.id && !data.avatarUrl) {
+        try {
+          // Temporarily set token so API call works (if needed by interceptor)
+          authUtils.setAuth(data.token, { id: data.id });
+          fullProfile = await userApi.getProfile(data.id);
+        } catch (e) {
+          console.warn("Failed to fetch full profile during login", e);
+        }
+      }
+
       // Normalize User Data
       const userData = {
         id: data.id,
         username: data.username, // Ensure backend sends 'username'
         email: data.email,
         roles: data.roles,
+        avatarUrl: data.avatarUrl || fullProfile.avatarUrl, // 🟢 Prioritize login data, fallback to fetch
+        displayName: data.displayName || fullProfile.displayName,
       };
 
       // 🟢 2. FIX: Save to Storage SYNCHRONOUSLY

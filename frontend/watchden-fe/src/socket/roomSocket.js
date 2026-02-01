@@ -10,25 +10,25 @@ export const connectSocket = (
   onUserJoined,
   onSignalReceived
 ) => {
-  if (stompClient && stompClient.connected) {
-    // If we are already connected to this room, don't reconnect
+  if (stompClient) {
+    console.log("⚠️ WebSocket connection already active or pending.");
     return;
   }
 
-  // 🟢 Point this to your API Gateway (8080) or Chat Service (8082)
-  // Ensure your Gateway forwards "/ws" to the Chat Service
   const socket = new SockJS("http://localhost:8083/ws");
   stompClient = Stomp.over(socket);
-  stompClient.debug = () => { }; // Turn off debug logs for cleaner console
+  stompClient.debug = () => { };
 
   stompClient.connect(
     {},
     () => {
       console.log("✅ WebSocket Connected!");
 
-      // 1. Subscribe to Chat Messages
+      // 1. Subscribe to Chat Messages (Includes JOIN/LEAVE)
       stompClient.subscribe(`/topic/room/${roomId}`, (payload) => {
-        onMessageReceived(JSON.parse(payload.body));
+        const msg = JSON.parse(payload.body);
+        console.log("📩 SOCKET MSG RECEIVED:", payload.body);
+        onMessageReceived(msg);
       });
 
       // 2. Subscribe to Participant Updates
@@ -63,7 +63,11 @@ export const connectSocket = (
         );
       }
     },
-    (error) => console.log("Socket error:", error)
+    (error) => {
+      console.log("Socket error:", error);
+      // Reset so we can retry later
+      stompClient = null;
+    }
   );
 };
 

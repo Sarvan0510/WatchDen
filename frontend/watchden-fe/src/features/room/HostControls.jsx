@@ -5,7 +5,8 @@ const HostControls = ({
   onStartMp4,
   onStartScreen,
   onStopScreen,
-  fileInputRef, // Passed from parent
+  onStartYoutube,
+  fileInputRef,
 }) => {
   return (
     <div style={styles.container}>
@@ -31,6 +32,28 @@ const HostControls = ({
           onClick={onStopScreen}
         >
           ⏹ Stop Sharing
+        </button>
+      </div>
+
+      {/* YouTube Section */}
+      <div style={{ marginTop: "12px", display: "flex", gap: "8px" }}>
+        <input
+          type="text"
+          placeholder="Paste YouTube Link..."
+          style={styles.input}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onStartYoutube(e.target.value);
+          }}
+          id="yt-input"
+        />
+        <button
+          style={{ ...styles.btn, flex: "0 0 auto", backgroundColor: "#ff0000", borderColor: "#cc0000", padding: "8px 16px" }}
+          onClick={() => {
+            const val = document.getElementById("yt-input").value;
+            if (val) onStartYoutube(val);
+          }}
+        >
+          ▶ Play
         </button>
       </div>
     </div>
@@ -71,6 +94,15 @@ const styles = {
     borderColor: "#991b1b",
     color: "#fecaca",
   },
+  input: {
+    flex: 1,
+    padding: "8px 12px",
+    borderRadius: "6px",
+    backgroundColor: "#0f172a",
+    border: "1px solid #334155",
+    color: "white",
+    outline: "none"
+  }
 };
 
 export default HostControls;

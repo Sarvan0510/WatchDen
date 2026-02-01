@@ -5,7 +5,7 @@ import { roomApi } from "../../api/room.api";
 import { authUtils } from "../auth/auth.utils";
 import Avatar from "../../components/Avatar"; // Import Avatar
 
-const RoomHeader = ({ roomId, user: initialUser, isHost }) => {
+const RoomHeader = ({ roomId, user: initialUser, isHost, disableProfileLink }) => {
   const navigate = useNavigate();
   const [user, setUser] = useState(initialUser || authUtils.getUser());
 
@@ -72,21 +72,23 @@ const RoomHeader = ({ roomId, user: initialUser, isHost }) => {
     <div className="room-header" style={styles.header}>
       <div className="room-info" style={styles.infoSection}>
         {/* Brand Links to Lobby */}
-        <Link to="/rooms" style={{ textDecoration: "none" }}>
-          <span style={styles.logo}>
-            Watch<span style={{ color: "#6366f1" }}>Den</span>
-          </span>
-        </Link>
+        {/* <Link to="/rooms" style={{ textDecoration: "none" }}> */}
+        <span style={styles.logo}>
+          Watch<span style={{ color: "#6366f1" }}>Den</span>
+        </span>
+        {/* </Link> */}
 
-        <div style={styles.divider}></div>
+        {!disableProfileLink && <div style={styles.divider}></div>}
 
-        {/* Profile Navigation Link with Avatar */}
-        <Link to="/profile" style={styles.profileLink}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Avatar src={user?.avatarUrl} name={user?.username} size="sm" />
-            <span>{user?.displayName || user?.username || "Profile"}</span>
-          </div>
-        </Link>
+        {/* Profile Navigation Link with Avatar (Hidden in Room if disabled) */}
+        {!disableProfileLink && (
+          <Link to="/profile" style={styles.profileLink}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <Avatar src={user?.avatarUrl} name={user?.username} size="sm" />
+              <span>{user?.displayName || user?.username || "Profile"}</span>
+            </div>
+          </Link>
+        )}
 
         {roomId !== "Lobby" && roomId !== "Dashboard" && (
           <>
