@@ -1,13 +1,10 @@
 import { useState } from "react";
 import { authApi } from "../../api/auth.api";
-import { userApi } from "../../api/user.api"; // 🟢 Import userApi
-import { authUtils } from "./auth.utils"; // 🟢 Import your utils
+import { userApi } from "../../api/user.api";
+import { authUtils } from "./auth.utils";
 
 export const useAuth = () => {
-  // 🟢 1. FIX: Initialize state from LocalStorage immediately
-  // This prevents the "Login" button from flashing on refresh
   const [user, setUser] = useState(authUtils.getUser());
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -15,42 +12,53 @@ export const useAuth = () => {
     setLoading(true);
     setError(null);
     try {
-      // API Call
       const data = await authApi.login(credentials);
 
-      // 🟢 1.5 FIX: If Login Response is slim (missing avatar), Fetch Full Profile
+      // Handle missing avatar data if necessary
       let fullProfile = {};
       if (data.id && !data.avatarUrl) {
         try {
-          // Temporarily set token so API call works (if needed by interceptor)
           authUtils.setAuth(data.token, { id: data.id });
           fullProfile = await userApi.getProfile(data.id);
         } catch (e) {
-          console.warn("Failed to fetch full profile during login", e);
+          // console.warn("Failed to fetch full profile during login", e);
         }
       }
 
-      // Normalize User Data
       const userData = {
         id: data.id,
-        username: data.username, // Ensure backend sends 'username'
+        username: data.username,
         email: data.email,
         roles: data.roles,
-        avatarUrl: data.avatarUrl || fullProfile.avatarUrl, // 🟢 Prioritize login data, fallback to fetch
+        avatarUrl: data.avatarUrl || fullProfile.avatarUrl,
         displayName: data.displayName || fullProfile.displayName,
       };
 
-      // 🟢 2. FIX: Save to Storage SYNCHRONOUSLY
-      // This runs before the function returns, so the data is 100% ready
-      // when your Login page calls navigate("/rooms")
       authUtils.setAuth(data.token, userData);
-
-      // Update React State
       setUser(userData);
       return true;
     } catch (err) {
-      console.error("Login Error:", err);
-      setError(err.response?.data?.message || err.message || "Login failed");
+      // console.error("Login Error:", err);
+
+      // Custom Error Message Handling
+      const status = err.response?.status;
+
+      if (status === 401 || status === 403) {
+        // Standard "Wrong Password" status
+        setError("Invalid username or password.");
+      } else if (status === 500) {
+        // Since the backend returns 500 for wrong passwords, we mask it here:
+        setError(
+          "Invalid credentials. Please check your username and password."
+        );
+      } else if (err.response?.data?.message) {
+        // Use backend message if available
+        setError(err.response.data.message);
+      } else {
+        // Fallback for network errors (e.g., server offline)
+        setError("Unable to connect to server. Please try again.");
+      }
+
       return false;
     } finally {
       setLoading(false);
@@ -62,10 +70,9 @@ export const useAuth = () => {
     setError(null);
     try {
       await authApi.register(userData);
-      // Optional: You could auto-login here if the backend returns a token
       return true;
     } catch (err) {
-      console.error("Register Error:", err);
+      // console.error("Register Error:", err);
       setError(err.response?.data?.message || "Registration failed");
       return false;
     } finally {
@@ -74,11 +81,8 @@ export const useAuth = () => {
   };
 
   const logout = () => {
-    // 🟢 3. FIX: Clear storage immediately
     authUtils.clearAuth();
     setUser(null);
-
-    // Force a hard refresh to clear any lingering memory states
     window.location.href = "/login";
   };
 

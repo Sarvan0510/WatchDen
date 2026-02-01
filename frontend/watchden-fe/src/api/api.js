@@ -1,6 +1,6 @@
 import axios from "axios";
 
-// 1. Point to the Gateway (Port 8080)
+// Point to the Gateway (Port 8080)
 const API_BASE_URL = "http://localhost:8080/api";
 
 const api = axios.create({
@@ -10,7 +10,7 @@ const api = axios.create({
   },
 });
 
-// 2. Request Interceptor: Attach Token
+// Request Interceptor: Attach Token
 api.interceptors.request.use(
   (config) => {
     const token = sessionStorage.getItem("token");
@@ -22,7 +22,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// 3. Response Interceptor: Handle Token Expiry
+// Response Interceptor: Handle Token Expiry
 api.interceptors.response.use(
   (response) => response,
   (error) => {

@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Warning, Plus, SignIn } from "@phosphor-icons/react";
 import { roomApi } from "../api/room.api";
 import { useAuth } from "../features/auth/useAuth";
-import RoomHeader from "../features/room/RoomHeader";
+// import RoomHeader from "../features/room/RoomHeader";
 
 const RoomJoinCreate = () => {
   const [activeTab, setActiveTab] = useState("create");
@@ -12,7 +13,7 @@ const RoomJoinCreate = () => {
   const [errorMessage, setErrorMessage] = useState("");
 
   const navigate = useNavigate();
-  const { user, logout } = useAuth(); // 🟢 Ensure logout is destructured from hook
+  const { user } = useAuth();
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -26,15 +27,15 @@ const RoomJoinCreate = () => {
       const roomRequest = {
         roomName: roomName,
         isPublic: isPublic,
-        maxUsers: 10,
+        maxUsers: 2,
       };
 
-      console.log("Sending Request:", roomRequest);
+      // console.log("Sending Request:", roomRequest);
 
       const newRoom = await roomApi.createRoom(roomRequest);
       navigate(`/room/${newRoom.roomCode}`);
     } catch (error) {
-      console.error("Create Room Failed", error);
+      // console.error("Create Room Failed", error);
       if (error.response && error.response.data) {
         setErrorMessage(`Error: ${JSON.stringify(error.response.data)}`);
       } else {
@@ -43,7 +44,6 @@ const RoomJoinCreate = () => {
     }
   };
 
-  // 🔴 FIXED HANDLE JOIN FUNCTION
   const handleJoin = async (e) => {
     e.preventDefault();
     setErrorMessage("");
@@ -53,18 +53,17 @@ const RoomJoinCreate = () => {
       // If successful, go to room
       navigate(`/room/${roomCode}`);
     } catch (error) {
-      // 🟢 FIX: Check if the error is "409 Conflict" (Already Joined)
-      // or if the error message mentions "already joined"
+      // Check if the error is "409 Conflict" (Already Joined)
       const status = error.response?.status;
       const message = error.response?.data?.message || "";
 
       // Only navigate if explicitly "Already Joined"
       if (message.toLowerCase().includes("already joined")) {
-        console.log("User already in room, navigating anyway...");
+        // console.log("User already in room, navigating anyway...");
         navigate(`/room/${roomCode}`);
       } else {
         // Real error (Room Full, Room Not Found, etc.)
-        console.error(error);
+        // console.error(error);
         setErrorMessage(message || "Invalid Room Code or Room Full");
       }
     }
@@ -72,15 +71,6 @@ const RoomJoinCreate = () => {
 
   return (
     <div style={styles.page}>
-      {/* <RoomHeader
-        roomId="Dashboard"
-        user={user}
-        onLogout={() => {
-          logout(); // Call the auth hook's logout
-          navigate("/login");
-        }}
-      /> */}
-
       <div className="join-create-container" style={styles.container}>
         {/* Tabs */}
         <div className="tabs" style={styles.tabContainer}>
@@ -109,7 +99,8 @@ const RoomJoinCreate = () => {
         <div style={styles.card}>
           {errorMessage && (
             <div style={styles.error}>
-              <span style={{ marginRight: "8px" }}>⚠️</span> {errorMessage}
+              <Warning size={20} weight="bold" style={{ marginRight: "8px" }} />
+              {errorMessage}
             </div>
           )}
 
@@ -121,7 +112,7 @@ const RoomJoinCreate = () => {
                 <label style={styles.label}>Room Name</label>
                 <input
                   type="text"
-                  placeholder="e.g. Movie Night 🍿"
+                  placeholder="e.g. Movie Night"
                   value={roomName}
                   onChange={(e) => setRoomName(e.target.value)}
                   required
@@ -145,6 +136,7 @@ const RoomJoinCreate = () => {
               </div>
 
               <button type="submit" style={styles.submitBtn}>
+                <Plus size={20} weight="bold" />
                 Create & Join
               </button>
             </form>
@@ -163,6 +155,7 @@ const RoomJoinCreate = () => {
                 />
               </div>
               <button type="submit" style={styles.submitBtn}>
+                <SignIn size={20} weight="bold" />
                 Join Room
               </button>
             </form>
@@ -173,7 +166,7 @@ const RoomJoinCreate = () => {
   );
 };
 
-// --- Styles matching the Landing/Login Aesthetic ---
+// --- Styles ---
 const styles = {
   page: {
     minHeight: "100vh",
@@ -283,6 +276,10 @@ const styles = {
     cursor: "pointer",
     boxShadow: "0 4px 12px rgba(99, 102, 241, 0.3)",
     transition: "background-color 0.2s",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: "8px",
   },
   error: {
     backgroundColor: "rgba(239, 68, 68, 0.1)",
@@ -292,6 +289,8 @@ const styles = {
     marginBottom: "20px",
     fontSize: "0.85rem",
     border: "1px solid rgba(239, 68, 68, 0.2)",
+    display: "flex",
+    alignItems: "center",
   },
 };
 

@@ -1,5 +1,6 @@
 import React from "react";
 import { Link, Navigate } from "react-router-dom";
+import { Lightning, ChatCircleText, LockKey } from "@phosphor-icons/react";
 import { useAuth } from "../features/auth/useAuth";
 
 const Landing = () => {
@@ -19,8 +20,8 @@ const Landing = () => {
           </h1>
           <h2 style={styles.title}>Watch Together, Anywhere.</h2>
           <p style={styles.description}>
-            The ultimate private theater for you and your friends. Sync videos
-            perfectly, chat in real-time, and never watch alone again.
+            A shared viewing experience for you and your friends. Sync videos
+            seamlessly, chat in real-time, and enjoy content together.
           </p>
         </div>
 
@@ -37,15 +38,21 @@ const Landing = () => {
         {/* Feature Highlights */}
         <div style={styles.features}>
           <div style={styles.featureItem}>
-            <span style={styles.featureIcon}>⚡</span>
+            <div style={styles.iconWrapper}>
+              <Lightning size={24} color="#fbbf24" weight="fill" />
+            </div>
             <p style={styles.featureText}>Real-time Sync</p>
           </div>
           <div style={styles.featureItem}>
-            <span style={styles.featureIcon}>💬</span>
+            <div style={styles.iconWrapper}>
+              <ChatCircleText size={24} color="#6366f1" weight="fill" />
+            </div>
             <p style={styles.featureText}>Live Chat</p>
           </div>
           <div style={styles.featureItem}>
-            <span style={styles.featureIcon}>🔒</span>
+            <div style={styles.iconWrapper}>
+              <LockKey size={24} color="#10b981" weight="fill" />
+            </div>
             <p style={styles.featureText}>Private Rooms</p>
           </div>
         </div>
@@ -133,15 +140,23 @@ const styles = {
     paddingTop: "40px",
   },
   featureItem: {
-    textAlign: "center",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "10px",
   },
-  featureIcon: {
-    fontSize: "1.5rem",
-    display: "block",
-    marginBottom: "8px",
+  iconWrapper: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "48px",
+    height: "48px",
+    borderRadius: "50%",
+    backgroundColor: "rgba(30, 41, 59, 0.5)",
+    border: "1px solid #334155",
   },
   featureText: {
-    fontSize: "0.9rem",
+    fontSize: "0.95rem",
     color: "#e2e8f0",
     margin: 0,
     fontWeight: "500",

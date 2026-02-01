@@ -1,25 +1,32 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { SignOut, Check, Copy } from "@phosphor-icons/react";
 import { notifyHostLeft } from "../../socket/roomSocket";
 import { roomApi } from "../../api/room.api";
 import { authUtils } from "../auth/auth.utils";
-import Avatar from "../../components/Avatar"; // Import Avatar
+import Avatar from "../../components/Avatar";
 
-const RoomHeader = ({ roomId, user: initialUser, isHost, disableProfileLink }) => {
+const RoomHeader = ({
+  roomId,
+  user: initialUser,
+  isHost,
+  disableProfileLink,
+}) => {
   const navigate = useNavigate();
   const [user, setUser] = useState(initialUser || authUtils.getUser());
+  const [copied, setCopied] = useState(false);
 
-  // Effect: Sync with Prop if Parent Updates
+  // Sync with Prop if Parent Updates
   useEffect(() => {
     if (initialUser) {
       setUser(initialUser);
     }
   }, [initialUser]);
 
-  // Effect: Listen for user updates (e.g. avatar change)
+  // Listen for user updates
   useEffect(() => {
     const handleUserUpdate = () => {
-      console.log("RoomHeader: User updated event received");
+      // console.log("RoomHeader: User updated event received");
       setUser(authUtils.getUser());
     };
 
@@ -30,7 +37,6 @@ const RoomHeader = ({ roomId, user: initialUser, isHost, disableProfileLink }) =
   const handleLeave = async () => {
     try {
       if (roomId === "Lobby") {
-        // Logout Logic handled by parent or just redirect
         navigate("/login");
         return;
       }
@@ -42,50 +48,44 @@ const RoomHeader = ({ roomId, user: initialUser, isHost, disableProfileLink }) =
         );
         if (!confirmLeave) return;
 
-        // 1. Notify everyone
-        console.log("📢 Host Leaving: Sending notification...");
+        // console.log("Host Leaving: Sending notification...");
         notifyHostLeft(roomId);
 
-        // 2. Delay to ensure message propagates before room deletion
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
 
-      // Only navigate if leave was successful or initiated
       await roomApi.leaveRoom(roomId);
       navigate("/rooms");
-
     } catch (error) {
-      console.error("Error leaving room:", error);
-
-      // Still navigate if error is non - critical 
+      // console.error("Error leaving room:", error);
       navigate("/rooms");
     }
   };
 
+  // Copy Function with Icon Feedback
   const copyCode = () => {
     navigator.clipboard.writeText(roomId);
-    // Using a simple alert for now as per your logic
-    alert("Room Code copied to clipboard!");
+    setCopied(true);
+    // Reset icon back to copy after 2 seconds
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <div className="room-header" style={styles.header}>
       <div className="room-info" style={styles.infoSection}>
-        {/* Brand Links to Lobby */}
-        {/* <Link to="/rooms" style={{ textDecoration: "none" }}> */}
         <span style={styles.logo}>
           Watch<span style={{ color: "#6366f1" }}>Den</span>
         </span>
-        {/* </Link> */}
 
         {!disableProfileLink && <div style={styles.divider}></div>}
 
-        {/* Profile Navigation Link with Avatar (Hidden in Room if disabled) */}
         {!disableProfileLink && (
           <Link to="/profile" style={styles.profileLink}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <Avatar src={user?.avatarUrl} name={user?.username} size="sm" />
-              <span>{user?.displayName || user?.username || "Profile"}</span>
+              <span style={{ color: "white", textDecoration: "none" }}>
+                {user?.displayName || user?.username || "Profile"}
+              </span>
             </div>
           </Link>
         )}
@@ -96,6 +96,18 @@ const RoomHeader = ({ roomId, user: initialUser, isHost, disableProfileLink }) =
             <div style={styles.codeContainer}>
               <span style={styles.codeLabel}>ROOM</span>
               <code style={styles.codeValue}>{roomId}</code>
+              {/* Copy Button Icon */}
+              <button
+                onClick={copyCode}
+                style={styles.iconBtn}
+                title="Copy Room Code"
+              >
+                {copied ? (
+                  <Check size={18} color="#4ade80" weight="bold" />
+                ) : (
+                  <Copy size={18} color="#94a3b8" />
+                )}
+              </button>
             </div>
           </>
         )}
@@ -106,17 +118,18 @@ const RoomHeader = ({ roomId, user: initialUser, isHost, disableProfileLink }) =
         onClick={handleLeave}
         style={styles.leaveBtn}
       >
-        {roomId === "Lobby" ? "Logout" : "Leave Room"}
+        {/* Exit Icon */}
+        <SignOut size={20} weight="bold" />
+        <span>{roomId === "Lobby" ? "Logout" : "Leave Room"}</span>
       </button>
     </div>
   );
 };
 
-// --- WatchDen Navigation Styles ---
 const styles = {
   header: {
     height: "64px",
-    backgroundColor: "#1e293b", // Slate 800
+    backgroundColor: "#1e293b",
     borderBottom: "1px solid #334155",
     display: "flex",
     alignItems: "center",
@@ -141,11 +154,14 @@ const styles = {
     height: "24px",
     backgroundColor: "#334155",
   },
+  profileLink: {
+    textDecoration: "none",
+  },
   codeContainer: {
     display: "flex",
     alignItems: "center",
     gap: "10px",
-    backgroundColor: "#0f172a", // Navy background for the code area
+    backgroundColor: "#0f172a",
     padding: "6px 12px",
     borderRadius: "8px",
     border: "1px solid #334155",
@@ -158,23 +174,23 @@ const styles = {
   },
   codeValue: {
     fontFamily: "'JetBrains Mono', monospace",
-    color: "#818cf8", // Indigo 400
+    color: "#818cf8",
     fontSize: "0.95rem",
     fontWeight: "600",
   },
-  copyBtn: {
-    fontSize: "0.7rem",
-    padding: "2px 8px",
-    backgroundColor: "#334155",
+  iconBtn: {
+    background: "transparent",
     border: "none",
-    borderRadius: "4px",
-    color: "#cbd5e1",
     cursor: "pointer",
-    fontWeight: "600",
-    transition: "all 0.2s",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "4px",
+    borderRadius: "4px",
+    transition: "background-color 0.2s",
   },
   leaveBtn: {
-    backgroundColor: "#ef4444", // Red 500
+    backgroundColor: "#ef4444",
     color: "white",
     border: "none",
     padding: "8px 18px",
@@ -184,6 +200,9 @@ const styles = {
     cursor: "pointer",
     transition: "background-color 0.2s",
     boxShadow: "0 4px 6px -1px rgba(239, 68, 68, 0.2)",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
   },
 };
 

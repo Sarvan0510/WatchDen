@@ -1,4 +1,5 @@
 import React from "react";
+import { PencilSimpleIcon } from "@phosphor-icons/react";
 import Avatar from "../../components/Avatar";
 
 const ProfileCard = ({ user, onEdit }) => {
@@ -24,7 +25,7 @@ const ProfileCard = ({ user, onEdit }) => {
           justifyContent: "center",
         }}
       >
-        {/* We use the large size for the profile page */}
+        {/* Use large size for profile page */}
         <Avatar src={user.avatarUrl} name={user.username} size="lg" />
       </div>
 
@@ -37,14 +38,21 @@ const ProfileCard = ({ user, onEdit }) => {
         <button
           onClick={onEdit}
           style={{
-            padding: "8px 16px",
+            padding: "10px 20px",
             backgroundColor: "#6366f1",
             color: "white",
             border: "none",
-            borderRadius: "4px",
+            borderRadius: "6px",
             cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            fontWeight: "600",
+            fontSize: "0.95rem",
+            transition: "background 0.2s",
           }}
         >
+          <PencilSimpleIcon size={18} weight="bold" />
           Edit Profile
         </button>
       )}

@@ -1,22 +1,22 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Plus, Users, SignIn, Ghost } from "@phosphor-icons/react";
 import { roomApi } from "../api/room.api";
 import Loader from "../components/Loader";
-import RoomHeader from "../features/room/RoomHeader";
-import { authUtils } from "../features/auth/auth.utils"; // Import your Utils
+import { authUtils } from "../features/auth/auth.utils";
 
 const RoomList = () => {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Initialize State DIRECTLY from authUtils
+  // Initialize State directly from authUtils
   // This reads from storage instantly before the page even paints.
   const [user, setUser] = useState(() => authUtils.getUser());
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    // 1. Safety Check (Optional but good)
+    // 1. Safety Check
     const storedUser = authUtils.getUser();
     if (storedUser && !user) {
       setUser(storedUser);
@@ -29,7 +29,7 @@ const RoomList = () => {
         const data = await roomApi.getPublicRooms();
         setRooms(data);
       } catch (error) {
-        console.error("Failed to fetch rooms", error);
+        // console.error("Failed to fetch rooms", error);
       } finally {
         if (!isPolling) setLoading(false);
       }
@@ -48,7 +48,6 @@ const RoomList = () => {
   }, []); // Run once on mount (interval persists)
 
   const handleLogout = () => {
-    // Use your hook or utils to logout
     authUtils.clearAuth();
     setUser(null);
     navigate("/login");
@@ -58,17 +57,16 @@ const RoomList = () => {
 
   return (
     <div className="room-list-page" style={styles.page}>
-      {/* Header Removed to avoid double navigation and "Leave Room" glitch in Lobby */}
-
       <div className="content-container" style={styles.container}>
         {/* Actions Bar */}
         <div className="header-actions" style={styles.actionHeader}>
           <div>
             <h2 style={styles.title}>Active Public Rooms</h2>
-            <p style={styles.subtitle}>Join a theater and start watching</p>
+            <p style={styles.subtitle}>Join a Room and start watching</p>
           </div>
           <Link to="/rooms/create" style={{ textDecoration: "none" }}>
             <button className="btn-primary" style={styles.createBtn}>
+              <Plus size={20} weight="bold" />
               Create or Join Room
             </button>
           </Link>
@@ -78,7 +76,8 @@ const RoomList = () => {
         <div className="room-grid" style={styles.grid}>
           {rooms.length === 0 ? (
             <div style={styles.emptyState}>
-              <p style={{ margin: 0 }}>
+              <Ghost size={48} color="#64748b" weight="duotone" />
+              <p style={{ margin: "10px 0 0 0" }}>
                 No active public rooms found. Be the first to start one!
               </p>
             </div>
@@ -102,7 +101,8 @@ const RoomList = () => {
                   <div style={styles.infoRow}>
                     <span style={styles.label}>Participants</span>
                     <span style={styles.userText}>
-                      👥 {room.participantCount || 0} / {room.maxUsers}
+                      <Users size={16} weight="bold" />
+                      {room.participantCount || 0} / {room.maxUsers}
                     </span>
                   </div>
                 </div>
@@ -111,7 +111,10 @@ const RoomList = () => {
                   to={`/room/${room.roomCode}`}
                   style={{ textDecoration: "none" }}
                 >
-                  <button style={styles.joinBtn}>Join Room</button>
+                  <button style={styles.joinBtn}>
+                    <SignIn size={18} weight="bold" />
+                    Join Room
+                  </button>
                 </Link>
               </div>
             ))
@@ -122,7 +125,7 @@ const RoomList = () => {
   );
 };
 
-// --- WatchDen Modern UI Styles ---
+// --- Styles ---
 const styles = {
   page: {
     minHeight: "100vh",
@@ -164,6 +167,9 @@ const styles = {
     fontWeight: "700",
     transition: "all 0.2s ease",
     boxShadow: "0 4px 12px rgba(99, 102, 241, 0.3)",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
   },
   grid: {
     display: "grid",
@@ -217,6 +223,7 @@ const styles = {
   infoRow: {
     display: "flex",
     justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: "10px",
     fontSize: "0.9rem",
   },
@@ -229,6 +236,9 @@ const styles = {
   },
   userText: {
     color: "#cbd5e1",
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
   },
   joinBtn: {
     width: "100%",
@@ -241,10 +251,17 @@ const styles = {
     fontWeight: "600",
     cursor: "pointer",
     transition: "all 0.2s",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: "8px",
   },
   emptyState: {
     gridColumn: "1 / -1",
-    textAlign: "center",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
     padding: "50px",
     color: "#64748b",
     border: "2px dashed #334155",

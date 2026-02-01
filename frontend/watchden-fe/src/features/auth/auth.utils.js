@@ -1,4 +1,4 @@
-import { jwtDecode } from "jwt-decode"; // You might need: npm install jwt-decode
+import { jwtDecode } from "jwt-decode";
 
 const TOKEN_KEY = "token";
 const USER_KEY = "user";
@@ -17,10 +17,10 @@ export const authUtils = {
   },
 
   updateUser: (user) => {
-    console.log("🔄 authUtils: Updating user in storage:", user);
+    // console.log("authUtils: Updating user in storage:", user);
     sessionStorage.setItem(USER_KEY, JSON.stringify(user));
 
-    console.log("📢 authUtils: Dispatching 'user-updated' event");
+    // console.log("authUtils: Dispatching 'user-updated' event");
     window.dispatchEvent(new Event("user-updated"));
   },
 

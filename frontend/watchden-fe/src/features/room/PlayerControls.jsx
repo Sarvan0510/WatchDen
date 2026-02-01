@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Play,
   Pause,
@@ -9,8 +9,6 @@ import {
   SpeakerX,
   FastForward,
   Rewind,
-  SkipBackCircle, // Alternative if you want circles
-  SkipForwardCircle,
 } from "@phosphor-icons/react";
 
 const PlayerControls = ({
@@ -30,6 +28,27 @@ const PlayerControls = ({
   onToggleMute,
   onVolumeChange,
 }) => {
+  // Local state to handle dragging without flickering
+  const [isDragging, setIsDragging] = useState(false);
+  const [sliderValue, setSliderValue] = useState(currentTime);
+
+  // Sync local slider with video time if not dragging
+  useEffect(() => {
+    if (!isDragging) {
+      setSliderValue(currentTime);
+    }
+  }, [currentTime, isDragging]);
+
+  // Handle User Dragging
+  const handleSeekChange = (e) => {
+    const val = Number(e.target.value);
+    setSliderValue(val); // Update visual slider immediately
+    onSeek(val); // Send seek command to video
+  };
+
+  const handleDragStart = () => setIsDragging(true);
+  const handleDragEnd = () => setIsDragging(false);
+
   // Format Time: 65 -> 1:05
   const formatTime = (seconds) => {
     if (!seconds) return "0:00";
@@ -40,25 +59,31 @@ const PlayerControls = ({
 
   return (
     <div style={styles.container}>
-      {/* 🟢 SEEK BAR (Host Only) */}
+      {/* Seek Bar (Host Only) */}
       {isHost && (
         <div style={styles.seekRow}>
-          <span style={styles.timeText}>{formatTime(currentTime)}</span>
+          <span style={styles.timeText}>{formatTime(sliderValue)}</span>
           <input
             type="range"
             min="0"
             max={duration || 100}
-            value={currentTime}
-            onChange={(e) => onSeek(Number(e.target.value))}
+            // Use local sliderValue instead of currentTime prop
+            value={sliderValue || 0}
+            onChange={handleSeekChange}
+            // Detect Drag Events
+            onMouseDown={handleDragStart}
+            onMouseUp={handleDragEnd}
+            onTouchStart={handleDragStart}
+            onTouchEnd={handleDragEnd}
             style={styles.seekBar}
           />
           <span style={styles.timeText}>{formatTime(duration)}</span>
         </div>
       )}
 
-      {/* 🟢 CONTROLS ROW */}
+      {/* Controls Row */}
       <div style={styles.controlsRow}>
-        {/* LEFT: Playback Controls */}
+        {/* Left: Playback Controls */}
         <div style={styles.buttonGroup}>
           {isHost ? (
             <>
@@ -115,7 +140,7 @@ const PlayerControls = ({
           )}
         </div>
 
-        {/* RIGHT: Volume (Everyone) */}
+        {/* Right: Volume (Everyone) */}
         <div style={styles.volumeGroup}>
           <button style={styles.iconBtn} onClick={onToggleMute}>
             {isMuted ? (
@@ -146,7 +171,6 @@ const styles = {
     backdropFilter: "blur(8px)",
     borderRadius: "12px",
     border: "1px solid rgba(255, 255, 255, 0.1)",
-    // 🟢 REMOVED: marginTop
     width: "100%",
     display: "flex",
     flexDirection: "column",
@@ -163,14 +187,14 @@ const styles = {
   timeText: {
     minWidth: "45px",
     textAlign: "center",
-    fontVariantNumeric: "tabular-nums", // Keeps numbers monospaced prevents jitter
+    fontVariantNumeric: "tabular-nums",
   },
   seekBar: {
     flex: 1,
     height: "4px",
     borderRadius: "2px",
     cursor: "pointer",
-    accentColor: "#6366f1", // Indigo
+    accentColor: "#6366f1",
   },
   controlsRow: {
     display: "flex",
@@ -208,7 +232,7 @@ const styles = {
     boxShadow: "0 4px 6px -1px rgba(99, 102, 241, 0.3)",
   },
   stopBtn: {
-    backgroundColor: "#450a0a", // Dark Red
+    backgroundColor: "#450a0a",
     color: "#fca5a5",
     border: "1px solid #7f1d1d",
     width: "40px",
@@ -244,7 +268,7 @@ const styles = {
     width: "80px",
     height: "4px",
     cursor: "pointer",
-    accentColor: "#10b981", // Emerald Green
+    accentColor: "#10b981",
   },
 };
 

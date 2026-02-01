@@ -9,7 +9,7 @@ export const useWebRTC = (roomId, user) => {
   const peersRef = useRef(new Map()); // { userId: RTCPeerConnection }
   const [remoteStreams, setRemoteStreams] = useState(new Map()); // { userId: MediaStream }
 
-  // Helper: Create PC
+  // Create Peer Connection
   const createPeerConnection = useCallback(
     (targetUserId, localStream, isInitiator) => {
       const pc = new RTCPeerConnection(ICE_CONFIG);
@@ -40,7 +40,7 @@ export const useWebRTC = (roomId, user) => {
 
       // Incoming Stream
       pc.ontrack = (e) => {
-        console.log("🎥 Received Remote Stream from:", targetUserId);
+        // console.log("Received Remote Stream from:", targetUserId);
         setRemoteStreams((prev) => {
           const newMap = new Map(prev);
           newMap.set(targetUserId, e.streams[0]);
@@ -73,18 +73,17 @@ export const useWebRTC = (roomId, user) => {
     let { type, sender, payload } = signal;
     if (sender === user.username) return;
 
-    // 1. Parse Payload
+    // Parse Payload
     if (typeof payload === "string") {
       try {
         payload = JSON.parse(payload);
       } catch (e) {
-        console.error("❌ Failed to parse signal payload:", e);
+        // console.error("Failed to parse signal payload:", e);
         return;
       }
     }
 
-    // 🟢 FIX 1: TARGET CHECK (The "3rd User" Fix)
-    // If the signal has a specific 'target' and it is NOT me, ignore it.
+    // Target check to ensure signals are meant for this user
     if (payload.target && payload.target !== user.username) {
       return;
     }
@@ -93,11 +92,10 @@ export const useWebRTC = (roomId, user) => {
 
     try {
       if (type === "offer") {
-
-        // 🟢 FIX 3: PERMISSIVE RENEGOTIATION (Allow "Duplicate" Offers)
+        // Permissive renegotiation logic
         if (pc) {
-          console.log("♻️ Renegotiation: Resetting PC for", sender);
-          // 🟢 CRITICAL: Stop "Closed" event from nuking the stream map
+          // console.log("Renegotiation: Resetting PC for", sender);
+          // Prevent closed event from removing the stream map during renegotiation
           pc.onconnectionstatechange = null;
           pc.close();
           peersRef.current.delete(sender);
@@ -114,10 +112,8 @@ export const useWebRTC = (roomId, user) => {
 
         // Respond specifically to the sender
         sendSignal(roomId, "answer", { sdp: answer, target: sender });
-
       } else if (type === "answer" && pc) {
-        // Only set remote answer when we're waiting for it (avoid "wrong state: stable" when
-        // e.g. host switched to YouTube and we get a stale or duplicate answer)
+        // Only set remote answer when waiting for it
         if (pc.signalingState !== "have-local-offer") return;
         try {
           await pc.setRemoteDescription(
@@ -125,7 +121,7 @@ export const useWebRTC = (roomId, user) => {
           );
         } catch (answerErr) {
           if (answerErr?.name === "InvalidStateError") {
-            console.warn("⚠️ Silencing WebRTC State Error:", answerErr.message);
+            // console.warn("Silencing WebRTC State Error:", answerErr.message);
           } else {
             throw answerErr;
           }
@@ -135,19 +131,15 @@ export const useWebRTC = (roomId, user) => {
           await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
         }
       } else if (type === "join") {
-        // 🟢 FIX 2: REFRESH LOGIC (The "Zombie Connection" Fix)
-        // If we receive "join", it means the user disconnected/refreshed.
-        // We MUST close the old connection and start a new one.
-
-        // Even if we are the sender, if someone joins, we offer.
+        // Refresh logic: If a user rejoins, close old connection and start fresh
         if (localStream) {
           if (pc) {
-            console.log(`♻️ User ${sender} rejoined. Resetting connection...`);
+            // console.log(`User ${sender} rejoined. Resetting connection...`);
             pc.close();
             peersRef.current.delete(sender);
           }
 
-          // Create FRESH connection
+          // Create fresh connection
           const newPc = createPeerConnection(sender, localStream, true);
           const offer = await newPc.createOffer();
           await newPc.setLocalDescription(offer);
@@ -158,31 +150,42 @@ export const useWebRTC = (roomId, user) => {
       }
     } catch (err) {
       if (err.name === "InvalidStateError") {
-        console.warn("⚠️ Silencing WebRTC State Error:", err.message);
+        // console.warn("Silencing WebRTC State Error:", err.message);
       } else {
-        console.error("WebRTC Signaling Error:", err);
+        // console.error("WebRTC Signaling Error:", err);
       }
     }
   };
 
   // Switch Video Track (For Screen Share / MP4)
   const replaceVideoTrack = (newStream) => {
-    const newVideoTrack = newStream.getVideoTracks()[0];
-    if (!newVideoTrack) return;
-
     peersRef.current.forEach((pc) => {
       const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+
       if (sender) {
-        sender.replaceTrack(newVideoTrack);
+        if (newStream) {
+          // If a new stream exists, switch to its video track
+          const newVideoTrack = newStream.getVideoTracks()[0];
+          if (newVideoTrack) {
+            sender.replaceTrack(newVideoTrack).catch((e) => {
+              // console.error("Track replace failed", e)
+            });
+          }
+        } else {
+          // If stream is null (e.g. stopping video), stop sending on this track
+          sender.replaceTrack(null).catch((e) => {
+            // console.error("Track clear failed", e)
+          });
+        }
       }
     });
   };
 
-  // 🟢 Manual Connection Trigger (Host calls this when starting stream)
+  // Manual Connection Trigger (Host calls this when starting stream)
   const connectToPeer = async (targetUserId, stream) => {
-    console.log(`🔌 Manual Connection initiated to: ${targetUserId}`);
+    // console.log(`Manual Connection initiated to: ${targetUserId}`);
     if (!stream) {
-      console.error("❌ Cannot connect to peer: No stream provided");
+      // console.error("Cannot connect to peer: No stream provided");
       return;
     }
 
@@ -191,12 +194,17 @@ export const useWebRTC = (roomId, user) => {
       peersRef.current.delete(targetUserId);
     }
 
-    // Use the passed stream, NOT localStreamRef (which is undefined here)
+    // Use the passed stream
     const pc = createPeerConnection(targetUserId, stream, true);
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     sendSignal(roomId, "offer", { sdp: offer, target: targetUserId });
   };
 
-  return { remoteStreams, handleIncomingSignal, replaceVideoTrack, connectToPeer };
+  return {
+    remoteStreams,
+    handleIncomingSignal,
+    replaceVideoTrack,
+    connectToPeer,
+  };
 };

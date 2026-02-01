@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from "react";
+import { PencilSimpleIcon } from "@phosphor-icons/react";
 import { userApi } from "../api/user.api";
 import AvatarUpload from "../features/user/AvatarUpload";
-import EditProfileForm from "../features/user/EditProfileForm"; //  Import the form
+import EditProfileForm from "../features/user/EditProfileForm";
 import Loader from "../components/Loader";
-import { authUtils } from "../features/auth/auth.utils"; // Add missing import
+import { authUtils } from "../features/auth/auth.utils";
 
 const ProfilePage = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false); //  Toggle state
+  const [isEditing, setIsEditing] = useState(false);
 
   const userString = sessionStorage.getItem("user");
   const currentUser = userString ? JSON.parse(userString) : null;
@@ -24,25 +25,23 @@ const ProfilePage = () => {
       const data = await userApi.getProfile(id);
       setProfile(data);
     } catch (error) {
-      console.error(error);
+      // console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
-  // ...
-
   const handleUpdateSuccess = (updatedUser) => {
     setProfile(updatedUser);
     setIsEditing(false);
 
-    // SAFELY Merge into LocalStorage User (for changing avtar in header )
+    // Safely Merge into LocalStorage User
     const currentUser = authUtils.getUser() || {};
     const safeUserUpdate = {
       ...currentUser,
       avatarUrl: updatedUser.avatarUrl,
       displayName: updatedUser.displayName,
-      username: updatedUser.username
+      username: updatedUser.username,
     };
     authUtils.updateUser(safeUserUpdate);
   };
@@ -60,7 +59,16 @@ const ProfilePage = () => {
         <div style={styles.grid}>
           <div className="card" style={styles.card}>
             <h3 style={styles.cardTitle}>Your Avatar</h3>
-            <div style={styles.avatarWrapper}>
+            {/* Using flex-grow to center content vertically if needed */}
+            <div
+              style={{
+                ...styles.avatarWrapper,
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+              }}
+            >
               <AvatarUpload
                 currentAvatar={profile?.avatarUrl}
                 username={profile?.username || currentUser.username}
@@ -68,14 +76,12 @@ const ProfilePage = () => {
                   const updatedProfile = { ...profile, avatarUrl: newUrl };
                   setProfile(updatedProfile);
 
-                  // SAFELY Merge into LocalStorage User
                   const currentUser = authUtils.getUser() || {};
                   const safeUserUpdate = {
                     ...currentUser,
                     avatarUrl: newUrl,
-                    // Also sync other fields if needed
                     displayName: updatedProfile.displayName,
-                    username: updatedProfile.username
+                    username: updatedProfile.username,
                   };
                   authUtils.updateUser(safeUserUpdate);
                 }}
@@ -86,35 +92,38 @@ const ProfilePage = () => {
           <div className="card" style={styles.card}>
             <h3 style={styles.cardTitle}>Profile Details</h3>
 
-            {/*  Conditional Rendering based on isEditing */}
-            {!isEditing ? (
-              <>
-                <div style={styles.detailGroup}>
-                  <div style={styles.detailItem}>
-                    <label style={styles.label}>Username</label>
-                    <div style={styles.valueDisplay}>{profile?.username}</div>
-                  </div>
-                  <div style={styles.detailItem}>
-                    <label style={styles.label}>Display Name</label>
-                    <div style={styles.valueDisplay}>
-                      {profile?.displayName || "Not set"}
+            <div style={{ flex: 1 }}>
+              {/* Conditional Rendering based on isEditing */}
+              {!isEditing ? (
+                <>
+                  <div style={styles.detailGroup}>
+                    <div style={styles.detailItem}>
+                      <label style={styles.label}>Username</label>
+                      <div style={styles.valueDisplay}>{profile?.username}</div>
+                    </div>
+                    <div style={styles.detailItem}>
+                      <label style={styles.label}>Display Name</label>
+                      <div style={styles.valueDisplay}>
+                        {profile?.displayName || "Not set"}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <button
-                  style={styles.editBtn}
-                  onClick={() => setIsEditing(true)}
-                >
-                  Edit Profile
-                </button>
-              </>
-            ) : (
-              <EditProfileForm
-                currentProfile={profile}
-                onUpdateSuccess={handleUpdateSuccess}
-                onCancel={() => setIsEditing(false)}
-              />
-            )}
+                  <button
+                    style={styles.editBtn}
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <PencilSimpleIcon size={18} weight="bold" />
+                    Edit Profile
+                  </button>
+                </>
+              ) : (
+                <EditProfileForm
+                  currentProfile={profile}
+                  onUpdateSuccess={handleUpdateSuccess}
+                  onCancel={() => setIsEditing(false)}
+                />
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -122,7 +131,6 @@ const ProfilePage = () => {
   );
 };
 
-// --- WatchDen Profile Styles ---
 const styles = {
   page: {
     minHeight: "100vh",
@@ -149,7 +157,6 @@ const styles = {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
     gap: "24px",
-    alignItems: "start",
   },
   card: {
     backgroundColor: "#1e293b",
@@ -157,6 +164,9 @@ const styles = {
     borderRadius: "16px",
     border: "1px solid #334155",
     boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.2)",
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
   },
   cardTitle: {
     fontSize: "1.1rem",
@@ -213,6 +223,11 @@ const styles = {
     fontWeight: "600",
     cursor: "pointer",
     transition: "all 0.2s",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
+    marginTop: "auto",
   },
   errorCard: {
     maxWidth: "400px",

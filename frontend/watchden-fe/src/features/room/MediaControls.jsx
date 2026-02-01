@@ -1,5 +1,6 @@
 import React from "react";
 
+// FOR FUTURE IMPLEMENTATION: Media Controls Component
 const MediaControls = ({
   isCamOn,
   isMicOn,
@@ -45,14 +46,14 @@ const styles = {
     display: "flex",
     gap: "8px",
     marginTop: "8px",
-    justifyContent: "center", // Center the buttons
+    justifyContent: "center",
   },
   btn: {
-    padding: "4px 12px", // 🟢 Smaller padding
+    padding: "4px 12px",
     borderRadius: "6px",
     color: "white",
     border: "none",
-    fontSize: "0.8rem", // 🟢 Smaller font
+    fontSize: "0.8rem",
     fontWeight: "600",
     minWidth: "70px",
     transition: "background-color 0.2s",

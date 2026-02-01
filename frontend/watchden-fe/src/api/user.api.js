@@ -8,7 +8,7 @@ export const userApi = {
   },
 
   updateProfile: async (data) => {
-    // 🟢 Retrieve and parse the user object first
+    // Retrieving and parsing the user object first
     const userString = sessionStorage.getItem("user");
     const currentUser = userString ? JSON.parse(userString) : null;
 
@@ -18,7 +18,7 @@ export const userApi = {
 
     const response = await api.put("/users/me", data, {
       headers: {
-        "X-User-Id": currentUser.id, // 🟢 Use the parsed variable name correctly
+        "X-User-Id": currentUser.id, // The parsed variable name
       },
     });
     return response.data;
@@ -29,7 +29,7 @@ export const userApi = {
     return response.data;
   },
 
-  // Matches @PostMapping("/upload-avatar")
+  // @PostMapping("/upload-avatar")
   uploadAvatar: async (file) => {
     const userString = sessionStorage.getItem("user");
     const currentUser = userString ? JSON.parse(userString) : null;
@@ -43,7 +43,7 @@ export const userApi = {
 
     const response = await api.post("/users/upload-avatar", formData, {
       headers: {
-        "Content-Type": "multipart/form-data", // Critical for file upload
+        "Content-Type": "multipart/form-data", // For file upload
         "X-User-Id": currentUser.id,
       },
     });
