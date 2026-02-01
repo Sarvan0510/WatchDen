@@ -261,6 +261,20 @@ const RoomView = () => {
 
   const handleStartMp4 = async (file) => {
     if (!isHost || !file) return;
+
+    // 🟢 FIX 1: IMMEDIATELY kill the previous video to stop "Ghost" time updates
+    if (mp4VideoRef.current) {
+      mp4VideoRef.current.pause();
+      mp4VideoRef.current.ontimeupdate = null; // <--- This stops the flickering
+      mp4VideoRef.current.onended = null;
+      mp4VideoRef.current = null;
+    }
+
+    // Clear the input so "onChange" triggers if you pick the same file again after stopping
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+
     try {
       const { video, stream } = await createMp4Stream(file);
       mp4VideoRef.current = video;
