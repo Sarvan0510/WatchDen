@@ -503,7 +503,6 @@ const styles = {
     top: "16px", // 🟢 CHANGED: Move from bottom to top
     right: "16px", // 🟢 CHANGED: Add spacing to match Live Badge
     background: "rgba(0, 0, 0, 0.5)", // 🟢 ADDED: Semi-transparent background for visibility
-    borderRadius: "8px", // 🟢 ADDED: Nice rounded corners
     color: "white",
     border: "1px solid rgba(255, 255, 255, 0.2)", // 🟢 ADDED: Subtle border
     width: "40px",

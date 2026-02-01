@@ -93,7 +93,6 @@ export const useWebRTC = (roomId, user) => {
 
     try {
       if (type === "offer") {
-
         // 🟢 FIX 3: PERMISSIVE RENEGOTIATION (Allow "Duplicate" Offers)
         if (pc) {
           console.log("♻️ Renegotiation: Resetting PC for", sender);
@@ -114,7 +113,6 @@ export const useWebRTC = (roomId, user) => {
 
         // Respond specifically to the sender
         sendSignal(roomId, "answer", { sdp: answer, target: sender });
-
       } else if (type === "answer" && pc) {
         // Only set remote answer when we're waiting for it (avoid "wrong state: stable" when
         // e.g. host switched to YouTube and we get a stale or duplicate answer)
@@ -198,5 +196,10 @@ export const useWebRTC = (roomId, user) => {
     sendSignal(roomId, "offer", { sdp: offer, target: targetUserId });
   };
 
-  return { remoteStreams, handleIncomingSignal, replaceVideoTrack, connectToPeer };
+  return {
+    remoteStreams,
+    handleIncomingSignal,
+    replaceVideoTrack,
+    connectToPeer,
+  };
 };
