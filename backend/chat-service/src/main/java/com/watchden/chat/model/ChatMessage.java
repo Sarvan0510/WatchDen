@@ -9,7 +9,8 @@ public class ChatMessage {
         CHAT,
         LEAVE,
         HOST_LEFT,
-        SYNC // Video sync (LOAD, PLAY, PAUSE, LOAD_YOUTUBE, HEARTBEAT) so participants see YouTube
+        SYNC // Video sync (LOAD, PLAY, PAUSE, LOAD_YOUTUBE, HEARTBEAT) so participants see
+             // YouTube
     }
 
     private Type type;

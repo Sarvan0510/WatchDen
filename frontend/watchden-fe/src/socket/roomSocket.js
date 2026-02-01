@@ -10,14 +10,11 @@ export const connectSocket = (
   onUserJoined,
   onSignalReceived
 ) => {
-  // 🟢 FIX: Prevent duplicate connections during React Strict Mode verify
-  // If stompClient exists (even if connecting), do not create a new one.
   if (stompClient) {
     console.log("⚠️ WebSocket connection already active or pending.");
     return;
   }
 
-  // 🟢 Point this to your API Gateway (8080) or Chat Service (8082)
   const socket = new SockJS("http://localhost:8083/ws");
   stompClient = Stomp.over(socket);
   stompClient.debug = () => { };
@@ -27,10 +24,11 @@ export const connectSocket = (
     () => {
       console.log("✅ WebSocket Connected!");
 
-      // 1. Subscribe to Chat Messages
+      // 1. Subscribe to Chat Messages (Includes JOIN/LEAVE)
       stompClient.subscribe(`/topic/room/${roomId}`, (payload) => {
-        console.log("📩 SOCKET MSG RECEIVED:", payload.body); // 🟢 LOG RAW MSG
-        onMessageReceived(JSON.parse(payload.body));
+        const msg = JSON.parse(payload.body);
+        console.log("📩 SOCKET MSG RECEIVED:", payload.body);
+        onMessageReceived(msg);
       });
 
       // 2. Subscribe to Participant Updates

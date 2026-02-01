@@ -556,8 +556,8 @@ const RoomView = () => {
       if (playerState.isYoutube || playerState.isMp4) {
         const timeSinceLastHeartbeat = Date.now() - lastHeartbeatReceivedAt.current;
 
-        // If no heartbeat for > 8 seconds (Heartbeat is every 2s, so 8s is plenty buffer)
-        if (timeSinceLastHeartbeat > 4000) {
+        // If no heartbeat for > 10 seconds (Heartbeat is every 2s, so 10s is safe buffer against jitter)
+        if (timeSinceLastHeartbeat > 10000) {
           console.warn(`⚠️ Host Heartbeat lost for ${timeSinceLastHeartbeat}ms! Resetting to Waiting Room...`);
 
           setPlayerState(prev => {
@@ -638,6 +638,8 @@ const RoomView = () => {
             console.log("🔄 SYNC Signal:", msg.content);
             try {
               const action = JSON.parse(msg.content);
+              // 🟢 ANY Valid Signal from Host resets the Watchdog timer
+              lastHeartbeatReceivedAt.current = Date.now();
               console.log("SYNC received, action.type:", action?.type);
               // 🟢 SYNC HANDLER
               if (action.type === "PAUSE") {
