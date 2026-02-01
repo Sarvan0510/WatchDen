@@ -8,7 +8,11 @@ import RoomHeader from "./RoomHeader";
 import VideoPlayer from "./VideoPlayer";
 import ChatPanel from "./ChatPanel";
 import ParticipantList from "./ParticipantList";
-import { connectSocket, disconnectSocket, sendMessage } from "../../socket/roomSocket";
+import {
+  connectSocket,
+  disconnectSocket,
+  sendMessage,
+} from "../../socket/roomSocket";
 import { authUtils } from "../auth/auth.utils";
 import { useWebRTC } from "../../hooks/useWebRTC";
 import { getLocalMedia } from "../../hooks/useLocalMedia";
@@ -65,10 +69,12 @@ const RoomView = () => {
   const joinSentRef = useRef(false);
   const videoPlayerRef = useRef(null); // 🟢 Ref to control VideoPlayer
 
-  const { remoteStreams, handleIncomingSignal, replaceVideoTrack, connectToPeer } = useWebRTC(
-    roomCode,
-    user
-  );
+  const {
+    remoteStreams,
+    handleIncomingSignal,
+    replaceVideoTrack,
+    connectToPeer,
+  } = useWebRTC(roomCode, user);
 
   const lastHostTimeRef = useRef(0); // 🟢 Track Host Time
   const lastHeartbeatReceivedAt = useRef(Date.now()); // 🟢 Track Wall Clock Time of last heartbeat
@@ -79,7 +85,7 @@ const RoomView = () => {
     if (isHost) {
       if (!playerState.isPlaying) {
         console.log("▶ HOST: Native Play Detected -> Broadcasting...");
-        setPlayerState(prev => ({ ...prev, isPlaying: true }));
+        setPlayerState((prev) => ({ ...prev, isPlaying: true }));
         sendMessage(roomCode, JSON.stringify({ type: "PLAY" }), "SYNC");
       }
       return;
@@ -104,7 +110,7 @@ const RoomView = () => {
     if (isHost) {
       if (playerState.isPlaying) {
         console.log("⏸ HOST: Native Pause Detected -> Broadcasting...");
-        setPlayerState(prev => ({ ...prev, isPlaying: false }));
+        setPlayerState((prev) => ({ ...prev, isPlaying: false }));
         sendMessage(roomCode, JSON.stringify({ type: "PAUSE" }), "SYNC");
       }
     }
@@ -126,14 +132,22 @@ const RoomView = () => {
           isYoutube: playerState.isYoutube, // 🟢 Send YouTube flag
           youtubeUrl: playerState.youtubeUrl, // 🟢 Send URL
           mediaName: playerState.mediaName,
-          isPlaying: playerState.isPlaying
+          isPlaying: playerState.isPlaying,
         };
         console.log("💓 HOST SENDING HEARTBEAT:", payload); // 🟢 LOG
         sendMessage(roomCode, JSON.stringify(payload), "SYNC");
       }, 2000);
     }
     return () => clearInterval(interval);
-  }, [isHost, playerState.isMp4, playerState.isYoutube, playerState.mediaName, playerState.isPlaying, playerState.youtubeUrl, roomCode]);
+  }, [
+    isHost,
+    playerState.isMp4,
+    playerState.isYoutube,
+    playerState.mediaName,
+    playerState.isPlaying,
+    playerState.youtubeUrl,
+    roomCode,
+  ]);
 
   // 🟢 FIX 1: Robust Stream Selection (The "Safety Net")
   const hostProfile = profileMap[hostId];
@@ -144,14 +158,14 @@ const RoomView = () => {
     hostId,
     hostUsername,
     streamsSize: remoteStreams.size,
-    streamKeys: Array.from(remoteStreams.keys())
+    streamKeys: Array.from(remoteStreams.keys()),
   });
 
   const activeStream = isHost
     ? localStream
     : (hostUsername && remoteStreams.get(hostUsername)) ||
-    // Fallback: If we don't know the name yet, but there is ONE stream, play it!
-    (remoteStreams.size > 0 ? remoteStreams.values().next().value : null);
+      // Fallback: If we don't know the name yet, but there is ONE stream, play it!
+      (remoteStreams.size > 0 ? remoteStreams.values().next().value : null);
 
   // --- MEDIA HANDLERS ---
   const handleToggleCam = () => {
@@ -277,13 +291,17 @@ const RoomView = () => {
         isMp4: true,
         currentTime: 0,
         duration: video.duration || 0,
-        mediaName: file.name // Local state update
+        mediaName: file.name, // Local state update
       });
       console.log("✅ Player State Updated, playing video...");
 
       // 🟢 Broadcast LOAD Signal so others see thumbnail/title
       // AND Broadcast PLAY immediately so it auto-starts for everyone
-      sendMessage(roomCode, JSON.stringify({ type: "LOAD", filename: file.name }), "SYNC");
+      sendMessage(
+        roomCode,
+        JSON.stringify({ type: "LOAD", filename: file.name }),
+        "SYNC"
+      );
 
       setTimeout(() => {
         sendMessage(roomCode, JSON.stringify({ type: "PLAY" }), "SYNC");
@@ -298,16 +316,18 @@ const RoomView = () => {
 
       // 🟢 FIX: Ensure we have usernames before connecting (Fixes "Skipped Connection" on fast refresh)
       const currentProfiles = { ...profileMap };
-      const missingIds = participants.filter(pId => !currentProfiles[pId]);
+      const missingIds = participants.filter((pId) => !currentProfiles[pId]);
 
       if (missingIds.length > 0) {
         console.log("⏳ Fetching missing profiles for:", missingIds);
         try {
-          const fetchedProfiles = await userApi.getUsersBatch(missingIds.map(Number));
-          fetchedProfiles.forEach(p => {
+          const fetchedProfiles = await userApi.getUsersBatch(
+            missingIds.map(Number)
+          );
+          fetchedProfiles.forEach((p) => {
             currentProfiles[p.userId] = p;
           });
-          setProfileMap(prev => ({ ...prev, ...currentProfiles }));
+          setProfileMap((prev) => ({ ...prev, ...currentProfiles }));
         } catch (e) {
           console.error("Profile fetch failed:", e);
         }
@@ -316,7 +336,7 @@ const RoomView = () => {
       // 🟢 FIX: Host Refreshed? Proactively connect to everyone!
       if (participants && participants.length > 0) {
         console.log("📡 Broadcasting Stream to Participants:", participants);
-        participants.forEach(pId => {
+        participants.forEach((pId) => {
           const pidNum = Number(pId);
           const myId = Number(user.id);
 
@@ -325,7 +345,9 @@ const RoomView = () => {
           if (pidNum !== myId && pProfile?.username) {
             connectToPeer(pProfile.username, stream);
           } else {
-            console.warn(`⚠️ Skipping ${pId}: No username found (MyID: ${myId})`);
+            console.warn(
+              `⚠️ Skipping ${pId}: No username found (MyID: ${myId})`
+            );
           }
         });
       }
@@ -379,7 +401,9 @@ const RoomView = () => {
     let videoId = null;
     try {
       // youtu.be/VIDEO_ID
-      const shortMatch = raw.match(/(?:youtu\.be\/)([A-Za-z0-9_-]{11})(?:\?|$)/);
+      const shortMatch = raw.match(
+        /(?:youtu\.be\/)([A-Za-z0-9_-]{11})(?:\?|$)/
+      );
       if (shortMatch) {
         videoId = shortMatch[1];
       } else {
@@ -388,7 +412,7 @@ const RoomView = () => {
         if (watchMatch) videoId = watchMatch[1];
       }
       if (videoId) return `https://www.youtube.com/watch?v=${videoId}`;
-    } catch (_) { }
+    } catch (_) {}
     return null;
   };
 
@@ -440,7 +464,13 @@ const RoomView = () => {
       mp4VideoRef.current = null;
     }
 
-    setPlayerState((prev) => ({ ...prev, isPlaying: false, isMp4: false, isYoutube: false, youtubeUrl: null }));
+    setPlayerState((prev) => ({
+      ...prev,
+      isPlaying: false,
+      isMp4: false,
+      isYoutube: false,
+      youtubeUrl: null,
+    }));
 
     // 🟢 Broadcast STOP to all participants so they reset too
     sendMessage(roomCode, JSON.stringify({ type: "STOP" }), "SYNC");
@@ -473,7 +503,8 @@ const RoomView = () => {
     const handleBeforeUnload = (e) => {
       if (isHost && (playerState.isMp4 || playerState.isYoutube)) {
         e.preventDefault();
-        e.returnValue = "You are hosting a stream. Leaving will stop playback. Are you sure?";
+        e.returnValue =
+          "You are hosting a stream. Leaving will stop playback. Are you sure?";
         return e.returnValue;
       }
     };
@@ -554,13 +585,16 @@ const RoomView = () => {
     const checkInterval = setInterval(() => {
       // Only check if we are actually in a session (YouTube or MP4)
       if (playerState.isYoutube || playerState.isMp4) {
-        const timeSinceLastHeartbeat = Date.now() - lastHeartbeatReceivedAt.current;
+        const timeSinceLastHeartbeat =
+          Date.now() - lastHeartbeatReceivedAt.current;
 
         // If no heartbeat for > 10 seconds (Heartbeat is every 2s, so 10s is safe buffer against jitter)
         if (timeSinceLastHeartbeat > 10000) {
-          console.warn(`⚠️ Host Heartbeat lost for ${timeSinceLastHeartbeat}ms! Resetting to Waiting Room...`);
+          console.warn(
+            `⚠️ Host Heartbeat lost for ${timeSinceLastHeartbeat}ms! Resetting to Waiting Room...`
+          );
 
-          setPlayerState(prev => {
+          setPlayerState((prev) => {
             // Only reset if actually playing something to avoid infinite loops
             if (!prev.isYoutube && !prev.isMp4) return prev;
             return {
@@ -569,7 +603,7 @@ const RoomView = () => {
               isMp4: false,
               isYoutube: false,
               youtubeUrl: null,
-              mediaName: null
+              mediaName: null,
             };
           });
           // Reset timer so we don't spam
@@ -595,7 +629,11 @@ const RoomView = () => {
         console.log("Joined room successfully on load");
       } catch (error) {
         // Ignore "Already Joined" errors, but log others
-        if (error.response && error.response.status !== 409 && error.response.data?.message !== "User already joined this room") {
+        if (
+          error.response &&
+          error.response.status !== 409 &&
+          error.response.data?.message !== "User already joined this room"
+        ) {
           console.error("Failed to auto-join room:", error);
         }
       }
@@ -645,28 +683,25 @@ const RoomView = () => {
               if (action.type === "PAUSE") {
                 console.log("⏸️ SYNC: PAUSE");
                 videoPlayerRef.current?.pause();
-                setPlayerState(prev => ({ ...prev, isPlaying: false }));
-              }
-              else if (action.type === "PLAY") {
+                setPlayerState((prev) => ({ ...prev, isPlaying: false }));
+              } else if (action.type === "PLAY") {
                 console.log("▶ SYNC: PLAY");
                 videoPlayerRef.current?.play();
-                setPlayerState(prev => ({ ...prev, isPlaying: true }));
-              }
-              else if (action.type === "LOAD") {
+                setPlayerState((prev) => ({ ...prev, isPlaying: true }));
+              } else if (action.type === "LOAD") {
                 console.log("📂 SYNC: LOAD", action.filename);
-                setPlayerState(prev => ({
+                setPlayerState((prev) => ({
                   ...prev,
                   isMp4: true,
                   isYoutube: false,
                   mediaName: action.filename,
-                  isPlaying: false // Reset to paused on load
+                  isPlaying: false, // Reset to paused on load
                 }));
-              }
-              else if (action.type === "LOAD_YOUTUBE") {
+              } else if (action.type === "LOAD_YOUTUBE") {
                 console.log("📺 SYNC: LOAD_YOUTUBE", action.url);
                 const url = normalizeYoutubeUrl(action.url) || action.url;
                 if (url) {
-                  setPlayerState(prev => ({
+                  setPlayerState((prev) => ({
                     ...prev,
                     isMp4: false,
                     isYoutube: true,
@@ -675,32 +710,36 @@ const RoomView = () => {
                     isPlaying: true, // Auto-play on load
                   }));
                 }
-              }
-              else if (action.type === "STOP") {
+              } else if (action.type === "STOP") {
                 console.log("⏹️ SYNC: STOP");
-                setPlayerState(prev => ({
+                setPlayerState((prev) => ({
                   ...prev,
                   isMp4: false,
                   isYoutube: false,
                   youtubeUrl: null,
                   mediaName: null,
-                  isPlaying: false
+                  isPlaying: false,
                 }));
               } else if (action.type === "HEARTBEAT") {
                 // 🟢 Update Host Time Ref
                 lastHostTimeRef.current = action.time;
                 lastHeartbeatReceivedAt.current = Date.now(); // 🟢 Update timestamp
 
-                setPlayerState(prev => {
+                setPlayerState((prev) => {
                   let newState = { ...prev };
                   let hasChanged = false;
 
                   // 🟢 FORCE SYNC: If Host says YouTube, IT IS YOUTUBE (unless we are host)
                   if (!isHost && action.isYoutube && action.youtubeUrl) {
-                    const normalizedUrl = normalizeYoutubeUrl(action.youtubeUrl) || action.youtubeUrl;
+                    const normalizedUrl =
+                      normalizeYoutubeUrl(action.youtubeUrl) ||
+                      action.youtubeUrl;
 
                     if (!prev.isYoutube || prev.youtubeUrl !== normalizedUrl) {
-                      console.log("⚡ HEARTBEAT FORCE SYNC: YouTube Mode", normalizedUrl);
+                      console.log(
+                        "⚡ HEARTBEAT FORCE SYNC: YouTube Mode",
+                        normalizedUrl
+                      );
                       newState.isYoutube = true;
                       newState.isMp4 = false;
                       newState.youtubeUrl = normalizedUrl;
@@ -711,7 +750,10 @@ const RoomView = () => {
                   // 🟢 FORCE SYNC: If Host says MP4, IT IS MP4
                   else if (!isHost && action.isMp4) {
                     if (!prev.isMp4 || prev.mediaName !== action.mediaName) {
-                      console.log("⚡ HEARTBEAT FORCE SYNC: MP4 Mode", action.mediaName);
+                      console.log(
+                        "⚡ HEARTBEAT FORCE SYNC: MP4 Mode",
+                        action.mediaName
+                      );
                       newState.isMp4 = true;
                       newState.isYoutube = false;
                       newState.mediaName = action.mediaName;
@@ -720,8 +762,14 @@ const RoomView = () => {
                   }
 
                   // 🟢 SYNC PLAY/PAUSE (Always, for everyone)
-                  if (action.isPlaying !== undefined && action.isPlaying !== prev.isPlaying) {
-                    console.log("⚡ HEARTBEAT FORCE SYNC: isPlaying =", action.isPlaying);
+                  if (
+                    action.isPlaying !== undefined &&
+                    action.isPlaying !== prev.isPlaying
+                  ) {
+                    console.log(
+                      "⚡ HEARTBEAT FORCE SYNC: isPlaying =",
+                      action.isPlaying
+                    );
                     newState.isPlaying = action.isPlaying;
                     hasChanged = true;
                   }
@@ -737,9 +785,15 @@ const RoomView = () => {
           else if (msg.type === "CHAT") {
             setMessages((prev) => {
               // 🟢 FIX: Deduplicate Messages (Prevent "Double Text" on Join)
-              const isDuplicate = prev.some(m =>
-                (m.id && m.id === msg.id) ||
-                (m.sender === msg.sender && m.content === msg.content && Math.abs(new Date(m.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 1000)
+              const isDuplicate = prev.some(
+                (m) =>
+                  (m.id && m.id === msg.id) ||
+                  (m.sender === msg.sender &&
+                    m.content === msg.content &&
+                    Math.abs(
+                      new Date(m.timestamp).getTime() -
+                        new Date(msg.timestamp).getTime()
+                    ) < 1000)
               );
 
               if (isDuplicate) return prev;
@@ -775,8 +829,6 @@ const RoomView = () => {
     };
   }, [roomCode, navigate]);
 
-
-
   if (!user) return null;
 
   return (
@@ -807,15 +859,36 @@ const RoomView = () => {
         )}
 
         <div className="main-content">
-          <div className="video-section" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, backgroundColor: 'black' }}>
+          <div
+            className="video-section"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              flex: 1,
+              minHeight: 0,
+              backgroundColor: "black",
+              position: "relative",
+            }}
+          >
             <VideoPlayer
               // 🟢 FORCE KEY CHANGE: Ensure remount when switching modes to avoid state stuck
-              key={playerState.isYoutube ? `youtube-${playerState.youtubeUrl}` : (activeStream ? activeStream.id : "no-stream")}
+              key={
+                playerState.isYoutube
+                  ? `youtube-${playerState.youtubeUrl}`
+                  : activeStream
+                    ? activeStream.id
+                    : "no-stream"
+              }
               ref={videoPlayerRef}
               roomCode={roomCode}
               // 🟢 FIX: Only pass stream if MP4 (paused/playing) OR active playback (Screen Share).
               // If stopped/idle, pass null to force "Waiting" screen.
-              stream={(playerState.isYoutube || (!playerState.isMp4 && !playerState.isPlaying)) ? null : activeStream}
+              stream={
+                playerState.isYoutube ||
+                (!playerState.isMp4 && !playerState.isPlaying)
+                  ? null
+                  : activeStream
+              }
               isHost={isHost}
               mediaName={playerState.mediaName}
               isMp4={playerState.isMp4}
@@ -829,43 +902,29 @@ const RoomView = () => {
               volume={localVolume}
             />
 
-            {/* 🟢 CONTROLS SECTION (For Host AND Participants) */}
-            <div style={styles.controlsSection}>
-              {(playerState.isMp4 || playerState.isYoutube) && (
-                <PlayerControls
-                  isPlaying={playerState.isPlaying}
-                  currentTime={playerState.currentTime}
-                  duration={playerState.duration}
-                  isHost={isHost}
-                  onPlayPause={isHost ? handlePlayPause : () => {
-                    // 🟢 Participant Toggle: Local Pause vs Jump-To-Live
-                    if (playerState.isPlaying) {
-                      videoPlayerRef.current?.pause();
-                      setPlayerState(p => ({ ...p, isPlaying: false }));
-                    } else {
-                      videoPlayerRef.current?.play(); // Triggers onPlay -> jumpToLive
-                      setPlayerState(p => ({ ...p, isPlaying: true }));
-                    }
-                  }}
-                  onStop={handleStop}
-                  onSeek={handleSeek}
-                  onSkipForward={handleSkipForward}
-                  onSkipBack={handleSkipBack}
-                  onGoToStart={handleGoToStart}
-                  onGoToEnd={handleGoToEnd}
-                  // 🟢 LOCAL AUDIO CONTROLS
-                  isMuted={isLocalMuted}
-                  volume={localVolume}
-                  onToggleMute={() => setIsLocalMuted(prev => !prev)}
-                  onVolumeChange={(val) => {
-                    setLocalVolume(val);
-                    if (val > 0) setIsLocalMuted(false);
-                  }}
-                />
-              )}
-
+            {/* 🟢 UNIFIED CONTROLS CONTAINER */}
+            {/* This container handles the Hover, Position, and Stacking */}
+            <div
+              className="host-controls-wrapper" // Make sure this class is in room.css!
+              style={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                width: "100%",
+                display: "flex",
+                flexDirection: "column", // Stack them vertically
+                justifyContent: "flex-end", // Push to bottom
+                alignItems: "center", // Center horizontally
+                padding: "20px 20px 40px 20px", // Extra bottom padding for look
+                background:
+                  "linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%)",
+                zIndex: 50,
+                gap: "10px", // Gap between HostControls and PlayerControls
+              }}
+            >
+              {/* 1. Host Controls (Top of stack) */}
               {isHost && (
-                <>
+                <div style={{ width: "100%", maxWidth: "700px" }}>
                   <HostControls
                     onStartMp4={handleStartMp4}
                     onStartScreen={handleStartScreen}
@@ -873,14 +932,33 @@ const RoomView = () => {
                     onStartYoutube={handleStartYoutube}
                     fileInputRef={fileInputRef}
                   />
-                  <MediaControls
-                    isCamOn={isCamOn}
-                    isMicOn={isMicOn}
-                    onToggleCam={handleToggleCam}
-                    onToggleMic={handleToggleMic}
-                    disabled={!localStream}
+                </div>
+              )}
+
+              {/* 2. Player Controls (Bottom of stack) */}
+              {(playerState.isMp4 || playerState.isYoutube) && (
+                <div style={{ width: "100%", maxWidth: "700px" }}>
+                  <PlayerControls
+                    isPlaying={playerState.isPlaying}
+                    currentTime={playerState.currentTime}
+                    duration={playerState.duration}
+                    isHost={isHost}
+                    onPlayPause={isHost ? handlePlayPause : () => {}}
+                    onStop={handleStop}
+                    onSeek={handleSeek}
+                    onSkipForward={handleSkipForward}
+                    onSkipBack={handleSkipBack}
+                    onGoToStart={handleGoToStart}
+                    onGoToEnd={handleGoToEnd}
+                    isMuted={isLocalMuted}
+                    volume={localVolume}
+                    onToggleMute={() => setIsLocalMuted((prev) => !prev)}
+                    onVolumeChange={(val) => {
+                      setLocalVolume(val);
+                      if (val > 0) setIsLocalMuted(false);
+                    }}
                   />
-                </>
+                </div>
               )}
             </div>
           </div>
@@ -896,13 +974,15 @@ const RoomView = () => {
           </div>
           <div className="chat-section">
             {/* Chat Panel (Right Sidebar) */}
-            <ChatPanel messages={messages} roomCode={roomCode} />
+            <ChatPanel
+              messages={messages}
+              roomCode={roomCode}
+              profileMap={profileMap}
+            />
           </div>
         </div>
       </div>
-
     </div>
-
   );
 };
 

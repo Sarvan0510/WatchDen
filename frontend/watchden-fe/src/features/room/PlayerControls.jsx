@@ -1,4 +1,17 @@
 import React from "react";
+import {
+  Play,
+  Pause,
+  Stop,
+  SkipBack,
+  SkipForward,
+  SpeakerHigh,
+  SpeakerX,
+  FastForward,
+  Rewind,
+  SkipBackCircle, // Alternative if you want circles
+  SkipForwardCircle,
+} from "@phosphor-icons/react";
 
 const PlayerControls = ({
   isPlaying,
@@ -7,18 +20,17 @@ const PlayerControls = ({
   onPlayPause,
   onStop,
   onSeek,
-  onSkipForward, // 🟢 Restore missing prop
+  onSkipForward,
   onSkipBack,
   onGoToStart,
   onGoToEnd,
   isHost,
-  // 🟢 NEW PROPS
   isMuted,
   volume,
   onToggleMute,
-  onVolumeChange
+  onVolumeChange,
 }) => {
-  // Helper to format time (e.g., 65s -> "1:05")
+  // Format Time: 65 -> 1:05
   const formatTime = (seconds) => {
     if (!seconds) return "0:00";
     const mins = Math.floor(seconds / 60);
@@ -28,9 +40,9 @@ const PlayerControls = ({
 
   return (
     <div style={styles.container}>
-      {/* 🟢 SEEK BAR ROW (Visible to HOST ONLY) */}
+      {/* 🟢 SEEK BAR (Host Only) */}
       {isHost && (
-        <div style={styles.seekContainer}>
+        <div style={styles.seekRow}>
           <span style={styles.timeText}>{formatTime(currentTime)}</span>
           <input
             type="range"
@@ -38,60 +50,90 @@ const PlayerControls = ({
             max={duration || 100}
             value={currentTime}
             onChange={(e) => onSeek(Number(e.target.value))}
-            style={{ ...styles.seekBar, cursor: "pointer", opacity: 1 }}
+            style={styles.seekBar}
           />
           <span style={styles.timeText}>{formatTime(duration)}</span>
         </div>
       )}
 
-      {/* 🟢 BUTTONS & VOLUME ROW */}
+      {/* 🟢 CONTROLS ROW */}
       <div style={styles.controlsRow}>
-        {/* Play/Pause Group */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {isHost && (
-            <>
-              <button style={styles.btn} onClick={onGoToStart} title="Go to Start">|&lt;</button>
-              <button style={styles.btn} onClick={onSkipBack} title="-10s">⏪</button>
-              <button style={styles.stopBtn} onClick={onStop} title="Stop">⏹</button>
-            </>
-          )}
-
-          {/* Play/Pause is for Host Only (Participants strictly sync) */}
+        {/* LEFT: Playback Controls */}
+        <div style={styles.buttonGroup}>
           {isHost ? (
-            <button style={styles.playBtn} onClick={onPlayPause}>
-              {isPlaying ? "⏸" : "▶"}
-            </button>
-          ) : (
-            <div style={{ ...styles.btn, width: "auto", padding: "0 10px", cursor: "default", opacity: 0.8, background: '#0f172a' }}>
-              {isPlaying ? "▶ Watching" : "⏸ Paused"}
-            </div>
-          )}
-
-          {isHost && (
             <>
-              <button style={styles.btn} onClick={onSkipForward} title="+10s">⏩</button>
-              <button style={styles.btn} onClick={onGoToEnd} title="Go to End">&gt;|</button>
+              {/* Host Actions */}
+              <button
+                style={styles.iconBtn}
+                onClick={onGoToStart}
+                title="Start"
+              >
+                <SkipBack weight="fill" size={20} />
+              </button>
+              <button style={styles.iconBtn} onClick={onSkipBack} title="-10s">
+                <Rewind weight="fill" size={20} />
+              </button>
+
+              <button style={styles.playBtn} onClick={onPlayPause}>
+                {isPlaying ? (
+                  <Pause weight="fill" size={24} />
+                ) : (
+                  <Play weight="fill" size={24} />
+                )}
+              </button>
+
+              <button style={styles.stopBtn} onClick={onStop} title="Stop">
+                <Stop weight="fill" size={20} />
+              </button>
+
+              <button
+                style={styles.iconBtn}
+                onClick={onSkipForward}
+                title="+10s"
+              >
+                <FastForward weight="fill" size={20} />
+              </button>
+              <button style={styles.iconBtn} onClick={onGoToEnd} title="End">
+                <SkipForward weight="fill" size={20} />
+              </button>
             </>
+          ) : (
+            // Participant View
+            <div style={styles.statusBadge}>
+              {isPlaying ? (
+                <>
+                  <Play weight="fill" size={16} />
+                  <span>Watching</span>
+                </>
+              ) : (
+                <>
+                  <Pause weight="fill" size={16} />
+                  <span>Paused</span>
+                </>
+              )}
+            </div>
           )}
         </div>
 
-        {/* 🟢 VOLUME CONTROL (Right Side) - Viewers Only */}
-        {!isHost && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
-            <button style={{ ...styles.btn, width: '40px' }} onClick={onToggleMute} title={isMuted ? "Unmute" : "Mute"}>
-              {isMuted ? "🔇" : "🔊"}
-            </button>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={isMuted ? 0 : volume}
-              onChange={(e) => onVolumeChange(Number(e.target.value))}
-              style={{ width: '80px', accentColor: '#10b981', cursor: 'pointer' }}
-            />
-          </div>
-        )}
+        {/* RIGHT: Volume (Everyone) */}
+        <div style={styles.volumeGroup}>
+          <button style={styles.iconBtn} onClick={onToggleMute}>
+            {isMuted ? (
+              <SpeakerX weight="fill" size={20} />
+            ) : (
+              <SpeakerHigh weight="fill" size={20} />
+            )}
+          </button>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={isMuted ? 0 : volume}
+            onChange={(e) => onVolumeChange(Number(e.target.value))}
+            style={styles.volumeSlider}
+          />
+        </div>
       </div>
     </div>
   );
@@ -99,70 +141,110 @@ const PlayerControls = ({
 
 const styles = {
   container: {
-    padding: "12px",
-    backgroundColor: "#1e293b",
+    padding: "16px",
+    backgroundColor: "rgba(30, 41, 59, 0.95)",
+    backdropFilter: "blur(8px)",
+    borderRadius: "12px",
+    border: "1px solid rgba(255, 255, 255, 0.1)",
+    // 🟢 REMOVED: marginTop
+    width: "100%",
     display: "flex",
     flexDirection: "column",
-    gap: "10px",
-    marginTop: "10px",
-    borderRadius: "8px",
-    borderTop: "1px solid #334155",
+    gap: "12px",
   },
-  seekContainer: {
+  seekRow: {
     display: "flex",
     alignItems: "center",
-    gap: "10px",
-    color: "#94a3b8",
+    gap: "12px",
+    color: "#cbd5e1",
     fontSize: "0.85rem",
+    fontWeight: "500",
+  },
+  timeText: {
+    minWidth: "45px",
+    textAlign: "center",
+    fontVariantNumeric: "tabular-nums", // Keeps numbers monospaced prevents jitter
   },
   seekBar: {
     flex: 1,
-    accentColor: "#6366f1",
-  },
-  timeText: {
-    minWidth: "40px",
-    textAlign: "center",
+    height: "4px",
+    borderRadius: "2px",
+    cursor: "pointer",
+    accentColor: "#6366f1", // Indigo
   },
   controlsRow: {
     display: "flex",
-    justifyContent: "space-between", // Spread Play controls and Volume
+    justifyContent: "space-between",
     alignItems: "center",
   },
-  btn: {
-    backgroundColor: "#334155",
-    border: "1px solid #475569",
-    color: "white",
-    width: "40px",
-    height: "35px",
-    borderRadius: "6px",
+  buttonGroup: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  iconBtn: {
+    background: "transparent",
+    border: "none",
+    color: "#cbd5e1",
+    padding: "8px",
+    borderRadius: "8px",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "1rem",
+    transition: "background 0.2s, color 0.2s",
   },
   playBtn: {
     backgroundColor: "#6366f1",
     color: "white",
     border: "none",
-    width: "50px",
-    height: "35px",
-    borderRadius: "6px",
+    width: "48px",
+    height: "40px",
+    borderRadius: "10px",
     cursor: "pointer",
-    fontSize: "1.2rem",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 4px 6px -1px rgba(99, 102, 241, 0.3)",
+  },
+  stopBtn: {
+    backgroundColor: "#450a0a", // Dark Red
+    color: "#fca5a5",
+    border: "1px solid #7f1d1d",
+    width: "40px",
+    height: "40px",
+    borderRadius: "10px",
+    cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
   },
-  stopBtn: {
-    backgroundColor: "#ef4444",
-    color: "white",
-    border: "none",
-    width: "40px",
-    height: "35px",
-    borderRadius: "6px",
+  statusBadge: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "8px 16px",
+    backgroundColor: "#0f172a",
+    borderRadius: "20px",
+    border: "1px solid #334155",
+    color: "#94a3b8",
+    fontSize: "0.9rem",
+    fontWeight: "600",
+  },
+  volumeGroup: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    backgroundColor: "#0f172a",
+    padding: "4px 12px 4px 4px",
+    borderRadius: "20px",
+    border: "1px solid #334155",
+  },
+  volumeSlider: {
+    width: "80px",
+    height: "4px",
     cursor: "pointer",
-    fontSize: "1rem",
+    accentColor: "#10b981", // Emerald Green
   },
 };
 

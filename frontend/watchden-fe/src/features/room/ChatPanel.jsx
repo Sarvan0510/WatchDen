@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import { sendMessage } from "../../socket/roomSocket";
 
-const ChatPanel = ({ messages, roomCode }) => {
+const ChatPanel = ({ messages, roomCode, profileMap = {} }) => {
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef(null);
 
-  // 1. Get current user to decide Left vs Right alignment
-  const currentUser = JSON.parse(sessionStorage.getItem("user"))?.username;
+  const userData = JSON.parse(sessionStorage.getItem("user"));
+  const currentUsername = userData?.username;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -25,27 +25,36 @@ const ChatPanel = ({ messages, roomCode }) => {
 
   return (
     <div className="chat-panel">
-      {/* Messages List */}
-      {/* Messages List */}
       <div className="messages-list">
         {messages
-          // 🔴 FIX: Filter out non-chat messages or empty content
-          .filter(
-            (msg) =>
-              msg.type === "CHAT" && msg.content && msg.content.trim() !== ""
-          )
+          .filter((msg) => msg.type === "CHAT" && msg.content?.trim() !== "")
           .map((msg, index) => {
-            const currentUser = JSON.parse(
-              sessionStorage.getItem("user")
-            )?.username;
-            const isMe = msg.sender === currentUser;
+            const isMe = msg.sender === currentUsername;
+
+            /**
+             * 🟢 FIX: THE "KAZUHA" LOOKUP
+             * 1. Try direct lookup by ID (if sender is an ID)
+             * 2. If that fails, search the profileMap values for a matching username
+             */
+            const profileById =
+              profileMap[msg.sender] || profileMap[Number(msg.sender)];
+
+            const profileByUsername = !profileById
+              ? Object.values(profileMap).find((p) => p.username === msg.sender)
+              : null;
+
+            const finalProfile = profileById || profileByUsername;
+
+            // Priority: Display Name -> Username -> Raw Sender string
+            const displayName =
+              finalProfile?.displayName || finalProfile?.username || msg.sender;
 
             return (
               <div
                 key={index}
                 className={`message-bubble ${isMe ? "my-message" : ""}`}
               >
-                {!isMe && <span className="sender-name">{msg.sender}</span>}
+                {!isMe && <span className="sender-name">{displayName}</span>}
                 <div className="message-content">{msg.content}</div>
               </div>
             );
@@ -53,7 +62,6 @@ const ChatPanel = ({ messages, roomCode }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
       <div className="chat-input-area">
         <input
           type="text"

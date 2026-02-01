@@ -33,11 +33,20 @@ const ParticipantList = ({ participants = [], profileMap = {} }) => {
               // Ensure userId is a number for lookup
               const id = Number(userId);
               const profile = profileMap[id];
-              const displayName = profile?.displayName || profile?.username || "Unknown User";
+              const displayName =
+                profile?.displayName || profile?.username || "Unknown User";
 
               // Avatar component handles the fallback logic internally
               return (
-                <div key={index} className="participant-item" style={{ display: "flex", alignItems: "center", padding: "8px 0" }}>
+                <div
+                  key={index}
+                  className="participant-item"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "8px 0",
+                  }}
+                >
                   <Avatar
                     src={profile?.avatarUrl}
                     name={displayName}
@@ -45,8 +54,18 @@ const ParticipantList = ({ participants = [], profileMap = {} }) => {
                     className="participant-avatar-sm"
                   />
                   {/* 🟢 Simplified Layout: Avatar + Display Name side-by-side */}
-                  <div className="participant-info" style={{ display: 'flex', alignItems: 'center', marginLeft: '10px' }}>
-                    <span className="participant-name" style={{ fontSize: '0.9rem', color: '#e2e8f0' }}>
+                  <div
+                    className="participant-info"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      marginLeft: "10px",
+                    }}
+                  >
+                    <span
+                      className="participant-name"
+                      style={{ fontSize: "0.9rem", color: "#e2e8f0" }}
+                    >
                       {displayName}
                     </span>
                   </div>
