@@ -1,0 +1,48 @@
+import { jwtDecode } from "jwt-decode";
+
+const TOKEN_KEY = "token";
+const USER_KEY = "user";
+
+export const authUtils = {
+  getToken: () => sessionStorage.getItem(TOKEN_KEY),
+
+  getUser: () => {
+    const userStr = sessionStorage.getItem(USER_KEY);
+    return userStr ? JSON.parse(userStr) : null;
+  },
+
+  setAuth: (token, user) => {
+    sessionStorage.setItem(TOKEN_KEY, token);
+    sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+  },
+
+  updateUser: (user) => {
+    // console.log("authUtils: Updating user in storage:", user);
+    sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+
+    // console.log("authUtils: Dispatching 'user-updated' event");
+    window.dispatchEvent(new Event("user-updated"));
+  },
+
+  clearAuth: () => {
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(USER_KEY);
+  },
+
+  isAuthenticated: () => {
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    if (!token) return false;
+
+    try {
+      const decoded = jwtDecode(token);
+      const currentTime = Date.now() / 1000;
+      if (decoded.exp < currentTime) {
+        authUtils.clearAuth();
+        return false;
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  },
+};

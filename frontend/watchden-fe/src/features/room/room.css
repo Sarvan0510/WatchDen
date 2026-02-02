@@ -1,0 +1,218 @@
+/* --- LAYOUT CONTAINERS --- */
+.room-container {
+  display: flex;
+  flex: 1;
+  /* Take remaining height */
+  min-height: 0;
+  /* Important for nested scroll */
+  background-color: #0f172a;
+  color: #f1f5f9;
+  overflow: hidden; /* Prevent double scrollbars */
+}
+
+.main-content {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  background-color: #020617;
+  /* Pure dark for video focus */
+}
+
+/* 🟢 FIX 2: Make video section a Flex Column */
+.video-section {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto; /* 🟢 Allow scrolling if controls get pushed down */
+  background-color: #000;
+}
+
+/* 🟢 FIX 3: Force the Player to take available space, but allow shrinking */
+.video-section .player-wrapper {
+  flex: 1;
+  height: auto !important;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* YouTube: ensure ReactPlayer iframe has space (flex + height:auto can collapse) */
+.video-section .player-wrapper--youtube {
+  min-height: 360px;
+}
+
+/* --- SIDEBAR --- */
+.sidebar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #1e293b;
+  background-color: #0f172a;
+  min-width: 320px;
+  max-width: 400px;
+  height: 100%;
+}
+
+/* --- PARTICIPANTS SECTION --- */
+.participants-section {
+  flex-shrink: 0;
+  background-color: #1e293b;
+  border-bottom: 1px solid #334155;
+}
+
+.participant-toggle-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background-color: #1e293b;
+  cursor: pointer;
+}
+
+.badge-count {
+  background-color: #6366f1;
+  /* Indigo badge */
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+.participant-items-scroll {
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 10px 20px;
+  background-color: #111827;
+  border-top: 1px solid #334155;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #22c55e;
+  border-radius: 50%;
+  margin-right: 12px;
+  box-shadow: 0 0 8px #22c55e;
+}
+
+/* --- CHAT SECTION --- */
+.chat-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Important for flex scrolling */
+  background-color: #0f172a;
+}
+
+.messages-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background-image: radial-gradient(at bottom right, #1e1b4b 0%, #0f172a 100%);
+}
+
+/* --- BUBBLE STYLES --- */
+.message-bubble {
+  display: flex;
+  flex-direction: column;
+  max-width: 85%;
+}
+
+.message-content {
+  background-color: #1e293b;
+  /* Slate for others */
+  color: #e2e8f0;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border-top-left-radius: 4px;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  border: 1px solid #334155;
+}
+
+.my-message .message-content {
+  background-color: #6366f1;
+  /* Indigo for me */
+  color: white;
+  border-top-left-radius: 14px;
+  border-top-right-radius: 4px;
+  border: none;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+.sender-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 4px;
+  margin-left: 6px;
+}
+
+/* --- INPUT AREA --- */
+.chat-input-area {
+  padding: 16px;
+  background-color: #1e293b;
+  border-top: 1px solid #334155;
+  display: flex;
+  gap: 12px;
+}
+
+.chat-input-area input {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background-color: #0f172a;
+  color: white;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+
+.chat-input-area input:focus {
+  border-color: #6366f1;
+  outline: none;
+}
+
+.chat-input-area button {
+  padding: 0 20px;
+  background-color: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: background-color 0.2s;
+}
+
+.chat-input-area button:hover {
+  background-color: #4f46e5;
+}
+
+/* --- CHAT PANEL FIX --- */
+.chat-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* room.css */
+.host-controls-wrapper {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s ease;
+  pointer-events: auto; /* Allows clicking through to video when hidden */
+}
+
+.host-controls-wrapper:hover {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+  pointer-events: auto; /* Enables clicking on buttons when visible */
+}

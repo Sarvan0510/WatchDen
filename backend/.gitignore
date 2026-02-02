@@ -1,1 +1,14 @@
-/.metadata/
+# --- Build & Compiled Code ---
+
+# --- Eclipse Workspace & Project Files ---
+.metadata/
+
+# --- System & Logs ---
+.DS_Store
+*.log
+*.prefs
+
+# --- IDE Specific (VS Code / IntelliJ) ---
+.vscode/
+.idea/
+*.iml
